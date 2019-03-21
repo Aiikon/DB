@@ -90,8 +90,10 @@ FunctionsToExport = @(
     'Initialize-DBConnectionToLocalDB',
     'Invoke-DBQuery',
     'Get-DBDatabase',
+    'Get-DBTable',
     'New-DBTable',
-    'Define-DBColumn'
+    'Define-DBColumn',
+    'Define-DBPrimaryKey'
 )
 
 # Cmdlets to export from this module

@@ -74,7 +74,7 @@ Function Connect-DBConnection
             $dbConnection.ConnectionObject.Open()
         }
         $dbConnection
-        if ($PSBoundParameters['Schema'])
+        if ($PSBoundParameters.ContainsKey('Schema'))
         {
             if ($Schema) { return $Schema }
             return $dbConnection.DefaultSchema
@@ -93,10 +93,14 @@ Function Invoke-DBQuery
     )
     End
     {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
         $dbConnection = Connect-DBConnection $Connection
 
         $command = $dbConnection.ConnectionObject.CreateCommand()
         $command.CommandText = $Query
+        $exception = $null
+
+        "Final Query:", $Query | Write-Verbose
 
         foreach ($parameter in $Parameters.Keys)
         {
@@ -139,7 +143,7 @@ Function Invoke-DBQuery
         }
         catch
         {
-            $PSCmdlet.ThrowTerminatingError($_)
+            $exception = $_
         }
         finally
         {
@@ -148,6 +152,8 @@ Function Invoke-DBQuery
             $reader.Close()
             $command.Dispose()
         }
+
+        if ($exception) { throw $exception }
     }
 }
 
@@ -162,6 +168,20 @@ Function Get-DBDatabase
         trap { $PSCmdlet.ThrowTerminatingError($_) }
         $dbConnection = Connect-DBConnection $Connection
         $dbConnection.ConnectionObject.GetSchema('Databases')
+    }
+}
+
+Function Get-DBTable
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection = Connect-DBConnection $Connection
+        $dbConnection.ConnectionObject.GetSchema('Tables')
     }
 }
 
@@ -184,26 +204,29 @@ Function New-DBTable
         $columnDefinitionList = $definitionList | Where-Object DefinitionType -eq Column
         if (!$columnDefinitionList) { throw "At least one column must be provided" }
         
-        $primaryKeyDefinitionList = $definitionList | Where-Object DefinitionType -eq PrimaryKey
+        $primaryKeyDefinition = $definitionList | Where-Object DefinitionType -eq PrimaryKey
+        if (@($primaryKeyDefinition).Count -gt 1) { throw "Only one Define-DBPrimaryKey statement can be provided." }
         $primaryKeyColumnList = $columnDefinitionList | Where-Object PrimaryKey
-        if ($primaryKeyDefinitionList -and $primaryKeyColumnList)
+        if ($primaryKeyDefinition -and $primaryKeyColumnList)
         {
             throw "PrimaryKey cannot be specified both on Define-DBColumn and with Define-DBPrimaryKey."
         }
         if ($primaryKeyColumnList)
         {
-            $primaryKeyDefinitionList = Define-DBPrimaryKey -Column $primaryKeyColumnList.Name
+            $primaryKeyDefinition = Define-DBPrimaryKey -Column $primaryKeyColumnList.Name
         }
 
+        if (!$primaryKeyDefinition) { Write-Warning "No primary key was specified for $Schema.$Table!" }
+
         $tableSql = New-Object System.Collections.Generic.List[string]
-        $tableSql.Add("CREATE TABLE [$Schema].[$Name]")
+        $tableSql.Add("CREATE TABLE [$Schema].[$Table]")
         $tableSql.Add("(")
 
         $definitionSqlList = New-Object System.Collections.Generic.List[string]
 
         foreach ($columnDefinition in $columnDefinitionList)
         {
-            $columnSql = "[$($columnDefinition.Name)] $($columnDefinition.Type)"
+            $columnSql = "    [$($columnDefinition.Name)] $($columnDefinition.Type)"
             if ($columnDefinition.Type -match "char" -and -not $columnDefinition.Length)
             {
                 $columnSql += "(MAX)"
@@ -217,12 +240,18 @@ Function New-DBTable
             $definitionSqlList.Add($columnSql)
         }
 
-
+        if ($primaryKeyDefinition)
+        {
+            $primaryKeyName = $primaryKeyDefinition.Name
+            if (!$primaryKeyName) { $primaryKeyName = "${Table}_PrimaryKey" }
+            $columnNameSql = $(foreach ($column in $primaryKeyDefinition.Column) { "[$column]" }) -join ','
+            $definitionSqlList.Add("    CONSTRAINT [$primaryKeyName] PRIMARY KEY ($columnNameSql)")
+        }
 
         $tableSql.Add($definitionSqlList -join ",`r`n")
         $tableSql.Add(")")
 
-        Invoke-DBQuery $Connection ($tableSql -join "`r`n")
+        Invoke-DBQuery $Connection ($tableSql -join "`r`n") -Mode NonQuery | Out-Null
     }
 }
 
@@ -247,6 +276,7 @@ Function Define-DBColumn
         $definition.DefinitionType = 'Column'
         $definition.Name = $Name
         $definition.Type = $Type
+        $definition.Length = $Length
         $definition.Required = $Required.IsPresent
         $definition.PrimaryKey = $PrimaryKey.IsPresent
         $definition.Index = $Index.IsPresent
