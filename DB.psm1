@@ -185,6 +185,107 @@ Function Get-DBTable
     }
 }
 
+Function Get-DBRow
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $Column,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [hashtable] $FilterEq,
+        [Parameter()] [hashtable] $FilterLike
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        $query = "SELECT * FROM [$Schema].[$Table]"
+        $parameters = @{}
+
+        Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters
+    }
+}
+
+Function Add-DBRow
+{
+    Param
+    (
+        [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    Begin
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        $dataTable = New-Object System.Data.DataTable
+        $tableAdapter = New-Object System.Data.SqlClient.SqlDataAdapter("SELECT * FROM [$Schema].[$Table]", $dbConnection.ConnectionObject)
+        $commandBuilder = New-Object System.Data.SqlClient.SqlCommandBuilder $tableAdapter
+        $tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
+
+        $unexpected = @{}
+    }
+    Process
+    {
+        if (!$InputObject) { return }
+        $newRow = $dataTable.NewRow()
+        foreach ($property in $InputObject.PSObject.Properties)
+        {
+            $propertyName = $property.Name
+            if ([System.DBNull]::Value.Equals($newRow[$propertyName]))
+            {
+                if ($null -ne $property.Value)
+                {
+                    $newRow[$propertyName] = $property.Value
+                }
+            }
+            else
+            {
+                if (-not $unexpected.$propertyName)
+                {
+                    Write-Warning "InputObject has unexpected property '$propertyName.'"
+                    $unexpected.$propertyName = $true
+                }
+            }
+        }
+        $dataTable.Rows.Add($newRow)
+    }
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table", 'Insert Rows'))
+        {
+            [void]$tableAdapter.Fill($dataTable)
+            [void]$tableAdapter.Update($dataTable)
+        }
+        $tableAdapter.Dispose()
+    }
+}
+
+Function Remove-DBRow
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        $query = "SELECT * FROM [$Schema].[$Table]"
+        $parameters = @{}
+
+        $query = "DELETE FROM [$Schema].[$Table]"
+
+        Invoke-DBQuery $Connection $query -Mode NonQuery -Parameters $parameters
+    }
+}
+
 Function New-DBTable
 {
     [CmdletBinding(PositionalBinding=$false)]

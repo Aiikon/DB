@@ -90,7 +90,10 @@ FunctionsToExport = @(
     'Initialize-DBConnectionToLocalDB',
     'Invoke-DBQuery',
     'Get-DBDatabase',
+    'Get-DBRow',
     'Get-DBTable',
+    'Add-DBRow',
+    'Remove-DBRow',
     'New-DBTable',
     'Define-DBColumn',
     'Define-DBPrimaryKey'
