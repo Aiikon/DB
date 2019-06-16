@@ -58,3 +58,7 @@ Use-DBTransaction DBTest -Verbose
 Remove-DBRow DBTest -Table Cluster -Verbose -FilterLike @{ClusterId="%"} | Out-Default
 Complete-DBTransaction DBTest
 Get-DBRow DBTest -Table Cluster | Out-Default
+
+New-DBDatabase DBTest -Database TestTemp -FileName C:\Temp\TestTemp.mdf
+Get-DBDatabase DBTest | Out-Default
+Remove-DBDatabase DBTest -Database TestTemp
