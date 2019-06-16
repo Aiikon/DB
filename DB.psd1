@@ -92,6 +92,7 @@ FunctionsToExport = @(
     'Get-DBDatabase',
     'Get-DBRow',
     'Get-DBTable',
+    'Remove-DBTable',
     'Add-DBRow',
     'Remove-DBRow',
     'New-DBTable',
