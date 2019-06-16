@@ -48,7 +48,7 @@ Function Initialize-DBConnectionToLocalDB
         $connectionObject.ConnectionString = $connectionString
         $connectionObject.Open()
 
-        $connection = 1 | Select-Object Name, Type, DefaultSchema, ConnectionObject
+        $connection = 1 | Select-Object Name, Type, DefaultSchema, ConnectionObject, Transaction
         $connection.Name = $ConnectionName
         $Connection.Type = "LocalDB"
         $connection.DefaultSchema = $DefaultSchema
@@ -82,6 +82,58 @@ Function Connect-DBConnection
     }
 }
 
+Function Use-DBTransaction
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection
+    )
+    End
+    {
+        $dbConnection = Connect-DBConnection $Connection
+        Write-Verbose "Starting transaction on $Connection"
+        $dbConnection.Transaction = $dbConnection.ConnectionObject.BeginTransaction()
+    }
+}
+
+Function Complete-DBTransaction
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection = Connect-DBConnection $Connection
+        $transaction = $dbConnection.Transaction
+        if (!$transaction) { throw "Connection does not have an active transaction." }
+        Write-Verbose "Completing transaction on $Connection"
+        $transaction.Commit()
+        $transaction.Dispose()
+        $dbConnection.Transaction = $null
+    }
+}
+
+Function Undo-DBTransaction
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection = Connect-DBConnection $Connection
+        $transaction = $dbConnection.Transaction
+        if (!$transaction) { throw "Connection does not have an active transaction." }
+        Write-Verbose "Cancelling transaction on $Connection"
+        $transaction.Rollback()
+        $transaction.Dispose()
+        $dbConnection.Transaction = $null
+    }
+}
+
 Function Invoke-DBQuery
 {
     Param
@@ -98,6 +150,7 @@ Function Invoke-DBQuery
 
         $command = $dbConnection.ConnectionObject.CreateCommand()
         $command.CommandText = $Query
+        if ($dbConnection.Transaction) { $command.Transaction = $dbConnection.Transaction }
         $exception = $null
 
         "Final Query:", $Query | Write-Verbose
