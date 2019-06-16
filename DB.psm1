@@ -202,6 +202,113 @@ Function Remove-DBTable
     }
 }
 
+Function Get-DBWhereSql
+{
+    [CmdletBinding()]
+    Param()
+    End
+    {
+        $opDict = [ordered]@{}
+        $opDict.Eq = '='
+        $opDict.Ne = '!='
+        $opDict.Gt = '>'
+        $opDict.Ge = '>='
+        $opDict.Lt = '<'
+        $opDict.Le = '<='
+        $opDict.Like = 'LIKE'
+        $opDict.NotLike = 'NOT LIKE'
+
+        $otherDict = [ordered]@{}
+        $otherDict.Null = "IS NULL"
+        $otherDict.NotNull = "IS NOT NULL"
+
+        $parameterDict = @{}
+
+        $whereList = New-Object System.Collections.Generic.List[string]
+        
+        $p = 0
+        foreach ($op in $opDict.Keys)
+        {
+            $filterDict = $PSCmdlet.SessionState.PSVariable.GetValue("Filter$op")
+            if (!$filterDict) { continue }
+            $op2 = $opDict[$op]
+            foreach ($col in $filterDict.Keys)
+            {
+                $value = $filterDict.$col
+                if ($value -eq $null)
+                {
+                    throw "Filter$op[$col] was null and can't be used."
+                }
+
+                if ($value -is [array])
+                {
+                    if ($op -in 'Eq', 'Ne')
+                    {
+                        $temp = foreach ($newValue in $value)
+                        {
+                            "@P$p"
+                            $parameterDict["P$p"] = $newValue
+                            $p += 1
+                        }
+                        if ($op -eq 'Eq')
+                        {
+                            $whereList.Add("[$col] IN ($($temp -join ','))")
+                        }
+                        else
+                        {
+                            $whereList.Add("[$col] NOT IN ($($temp -join ','))")
+                        }
+                    }
+                    elseif ($op -in 'Like', 'NotLike')
+                    {
+                        if ($op -eq 'NotLike') { $join = ' AND ' }
+                        $temp = foreach ($newValue in $value)
+                        {
+                            "[$col] $op2 @P$p"
+                            $parameterDict["P$p"] = $newValue
+                            $p += 1
+                        }
+                        $join = ' OR '
+                        $whereList.Add("($($temp -join $join))")
+                    }
+                    else
+                    {
+                        throw "Filter$op[$col] is an array, which is not compatible with '$op'."
+                    }
+                }
+                else
+                {
+                    $parameterDict["P$p"] = $value
+                    $whereList.Add("[$col] $op2 @P$p")
+                }
+
+                $p += 1
+            }
+        }
+
+        foreach ($op in $otherDict.Keys)
+        {
+            $otherCol = $PSCmdlet.SessionState.PSVariable.GetValue("Filter$op")
+            if (!$otherCol) { continue }
+            $op2 = $otherDict.$op
+            foreach ($col in $otherCol)
+            {
+                $whereList.Add("[$col] $op2")
+            }
+        }
+
+        if ($whereList.Count)
+        {
+            " WHERE $($whereList -join ' AND ')"
+        }
+        else
+        {
+            ''
+        }
+        $parameterDict
+    }
+}
+
 Function Get-DBRow
 {
     Param
@@ -211,13 +318,23 @@ Function Get-DBRow
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $Column,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter()] [hashtable] $FilterEq,
-        [Parameter()] [hashtable] $FilterLike
+        [Parameter()] [hashtable] $FilterNe,
+        [Parameter()] [hashtable] $FilterGt,
+        [Parameter()] [hashtable] $FilterGe,
+        [Parameter()] [hashtable] $FilterLt,
+        [Parameter()] [hashtable] $FilterLe,
+        [Parameter()] [hashtable] $FilterLike,
+        [Parameter()] [hashtable] $FilterNotLike,
+        [Parameter()] [string[]] $FilterNull,
+        [Parameter()] [string[]] $FilterNotNull
     )
     End
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        $query = "SELECT * FROM [$Schema].[$Table]"
-        $parameters = @{}
+
+        $whereSql, $parameters = Get-DBWhereSql
+
+        $query = "SELECT * FROM [$Schema].[$Table]$whereSql"
 
         Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters
     }
