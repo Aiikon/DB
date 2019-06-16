@@ -45,3 +45,16 @@ Get-DBRow DBTest -Table Cluster -Verbose -FilterNull ClusterType | Out-Default
 Get-DBRow DBTest -Table Cluster -Verbose -FilterNotNull ClusterType | Out-Default
 
 Remove-DBRow DBTest -Table Cluster -Verbose -FilterEq @{ClusterId=1} | Out-Default
+
+Write-Host -ForegroundColor Magenta "Starting Transaction Test (Undo)"
+Use-DBTransaction DBTest -Verbose
+Remove-DBRow DBTest -Table Cluster -Verbose -FilterLike @{ClusterId="%"} | Out-Default
+Undo-DBTransaction DBTest
+Get-DBRow DBTest -Table Cluster | Out-Default
+
+
+Write-Host -ForegroundColor Magenta "Starting Transaction Test (Complete)"
+Use-DBTransaction DBTest -Verbose
+Remove-DBRow DBTest -Table Cluster -Verbose -FilterLike @{ClusterId="%"} | Out-Default
+Complete-DBTransaction DBTest
+Get-DBRow DBTest -Table Cluster | Out-Default
