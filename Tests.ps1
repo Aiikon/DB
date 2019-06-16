@@ -61,4 +61,9 @@ Get-DBRow DBTest -Table Cluster | Out-Default
 
 New-DBDatabase DBTest -Database TestTemp -FileName C:\Temp\TestTemp.mdf
 Get-DBDatabase DBTest | Out-Default
-Remove-DBDatabase DBTest -Database TestTemp
+Remove-DBDatabase DBTest -Database TestTemp -Confirm:$false
+
+
+New-DBSchema DBTest -Schema TempSchema
+Get-DBSchema DBTest | Where-Object Name -eq TempSchema | Out-Default
+Remove-DBSchema DBTest -Schema TempSchema -Confirm:$false

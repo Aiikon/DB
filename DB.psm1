@@ -260,6 +260,53 @@ Function Remove-DBDatabase
     }
 }
 
+Function Get-DBSchema
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        Invoke-DBQuery $Connection "SELECT * FROM sys.schemas"
+    }
+}
+
+Function New-DBSchema
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    End
+    {
+        $query = "CREATE SCHEMA [$Schema]"
+
+        Invoke-DBQuery $Connection $query -Mode Scalar
+    }
+}
+
+Function Remove-DBSchema
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    End
+    {
+        $query = "DROP SCHEMA [$Schema]"
+
+        if ($PSCmdlet.ShouldProcess($Schema, 'Drop Schema'))
+        {
+            Invoke-DBQuery $Connection $query -Mode Scalar
+        }
+    }
+}
+
 Function Get-DBTable
 {
     Param
