@@ -43,3 +43,5 @@ Get-DBRow DBTest -Table Cluster -Verbose -FilterGe @{ClusterId=1} -FilterLe @{Cl
 Get-DBRow DBTest -Table Cluster -Verbose -FilterNull ClusterType | Out-Default
 
 Get-DBRow DBTest -Table Cluster -Verbose -FilterNotNull ClusterType | Out-Default
+
+Remove-DBRow DBTest -Table Cluster -Verbose -FilterEq @{ClusterId=1} | Out-Default

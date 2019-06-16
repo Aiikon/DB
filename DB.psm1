@@ -406,17 +406,27 @@ Function Remove-DBRow
     (
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [hashtable] $FilterEq,
+        [Parameter()] [hashtable] $FilterNe,
+        [Parameter()] [hashtable] $FilterGt,
+        [Parameter()] [hashtable] $FilterGe,
+        [Parameter()] [hashtable] $FilterLt,
+        [Parameter()] [hashtable] $FilterLe,
+        [Parameter()] [hashtable] $FilterLike,
+        [Parameter()] [hashtable] $FilterNotLike,
+        [Parameter()] [string[]] $FilterNull,
+        [Parameter()] [string[]] $FilterNotNull
     )
     End
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        $query = "SELECT * FROM [$Schema].[$Table]"
-        $parameters = @{}
 
-        $query = "DELETE FROM [$Schema].[$Table]"
+        $whereSql, $parameters = Get-DBWhereSql
 
-        Invoke-DBQuery $Connection $query -Mode NonQuery -Parameters $parameters
+        $query = "DELETE FROM [$Schema].[$Table]$whereSql"
+
+        Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters
     }
 }
 
