@@ -2,7 +2,7 @@ Import-Module (Get-Module DB).Path -Force -DisableNameChecking
 
 Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf
 
-Remove-DBTable DBTest -Table Cluster
+Remove-DBTable DBTest -Table Cluster -Confirm:$false
 New-DBTable DBTest -Table Cluster -Definition {
     Define-DBColumn ClusterId int -Required -PrimaryKey
     Define-DBColumn ClusterName nvarchar -Required -Length 15

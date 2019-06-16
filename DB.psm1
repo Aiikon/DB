@@ -323,6 +323,7 @@ Function Get-DBTable
 
 Function Remove-DBTable
 {
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
@@ -333,7 +334,10 @@ Function Remove-DBTable
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
-        Invoke-DBQuery $Connection "DROP TABLE [$Schema].[$Table]" -Mode NonQuery | Out-Null
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table", 'Drop Table'))
+        {
+            Invoke-DBQuery $Connection "DROP TABLE [$Schema].[$Table]" -Mode NonQuery | Out-Null
+        }
     }
 }
 
