@@ -225,6 +225,41 @@ Function Get-DBDatabase
     }
 }
 
+Function New-DBDatabase
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Database,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-\\\.\:]+\Z")] [string] $FileName
+    )
+    End
+    {
+        $query = "CREATE DATABASE [$Database] ON (NAME='$Database', FILENAME='$FileName')"
+
+        Invoke-DBQuery $Connection $query -Mode Scalar
+    }
+}
+
+Function Remove-DBDatabase
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Database
+    )
+    End
+    {
+        $query = "DROP DATABASE [$Database]"
+
+        if ($PSCmdlet.ShouldProcess($Database, 'Drop Database'))
+        {
+            Invoke-DBQuery $Connection $query -Mode Scalar
+        }
+    }
+}
+
 Function Get-DBTable
 {
     Param

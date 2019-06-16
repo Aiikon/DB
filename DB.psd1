@@ -93,6 +93,8 @@ FunctionsToExport = @(
     'Undo-DBTransaction'
     'Invoke-DBQuery'
     'Get-DBDatabase'
+    'New-DBDatabase'
+    'Remove-DBDatabase'
     'Get-DBRow'
     'Get-DBTable'
     'Remove-DBTable'
