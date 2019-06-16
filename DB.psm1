@@ -361,7 +361,11 @@ Function Define-DBColumn
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Name,
-        [Parameter(Mandatory=$true, Position=1)] [ValidateSet('nvarchar', 'nchar', 'varchar', 'char', 'bigint', 'int', 'ntext', 'datetime')] [string] $Type,
+        [Parameter(Mandatory=$true, Position=1)] [ValidateSet('nvarchar', 'nchar', 'varchar', 'char',
+            'bigint', 'int', 'smallint', 'tinyint', 'bit',
+            'numeric', 'decimal', 'money', 'smallmoney',
+            'datetime', 'date', 'time',
+            'ntext', 'varbinary', 'uniqueidentifier')] [string] $Type,
         [Parameter(Position=2)] [int] $Length,
         [Parameter()] [switch] $Required,
         [Parameter()] [switch] $PrimaryKey,
