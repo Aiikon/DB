@@ -118,9 +118,10 @@ Function Invoke-DBQuery
             }
             elseif ($Mode -eq 'Scalar')
             {
-                $command.ExecuteScalar()
+                $result = $command.ExecuteScalar()
                 $command.Dispose()
-                return
+                if ($result -eq [System.DBNull]::Value) { $result = $null }
+                return $result
             }
 
             $reader = $command.ExecuteReader()
