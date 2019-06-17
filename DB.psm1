@@ -486,7 +486,8 @@ Function Add-DBRow
         [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [switch] $BulkCopy
     )
     Begin
     {
@@ -532,8 +533,20 @@ Function Add-DBRow
 
         if ($PSCmdlet.ShouldProcess("$Schema.$Table", 'Insert Rows'))
         {
-            [void]$tableAdapter.Fill($dataTable)
-            [void]$tableAdapter.Update($dataTable)
+            if ($BulkCopy)
+            {
+                $options = [System.Data.SqlClient.SqlBulkCopyOptions]::FireTriggers +
+                    [System.Data.SqlClient.SqlBulkCopyOptions]::TableLock
+                if (!$dbConnection.Transaction) { $options += [System.Data.SqlClient.SqlBulkCopyOptions]::UseInternalTransaction }
+                $sqlBulkCopy = New-Object System.Data.SqlClient.SqlBulkCopy $dbConnection.ConnectionObject, $options, $dbConnection.Transaction
+                $sqlBulkCopy.DestinationTableName = "[$Schema].[$Table]"
+                $sqlBulkCopy.WriteToServer($dataTable)
+            }
+            else
+            {
+                [void]$tableAdapter.Fill($dataTable)
+                [void]$tableAdapter.Update($dataTable)
+            }
         }
         $tableAdapter.Dispose()
     }

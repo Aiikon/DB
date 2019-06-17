@@ -67,3 +67,23 @@ Remove-DBDatabase DBTest -Database TestTemp -Confirm:$false
 New-DBSchema DBTest -Schema TempSchema
 Get-DBSchema DBTest | Where-Object Name -eq TempSchema | Out-Default
 Remove-DBSchema DBTest -Schema TempSchema -Confirm:$false
+
+
+@"
+ClusterId,ClusterName,ClusterType
+1,SQL001,SQL
+2,SQL002,SQL
+3,CAFile,File
+4,TXFile,File
+6,SQL003,SQL
+7,ORFile,File
+"@ | ConvertFrom-Csv | Add-DBRow DBTest -Table Cluster -BulkCopy
+
+Get-DBRow DBTest -Table Cluster | Out-Default
+
+Use-DBTransaction DBTest
+@"
+ClusterId,ClusterName,ClusterType
+8,WAFile,File
+"@ | ConvertFrom-Csv | Add-DBRow DBTest -Table Cluster -BulkCopy
+Complete-DBTransaction DBTest
