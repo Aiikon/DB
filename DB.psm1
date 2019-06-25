@@ -759,6 +759,50 @@ Function Set-DBRow
     }
 }
 
+Function Update-DBRow
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
+        [Parameter()] [string[]] $Keys
+    )
+    Begin
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        $finalKeys = $Keys
+        if (!$finalKeys)
+        {
+            $finalKeys = Get-DBPrimaryKey -Connection $Connection -Schema $Schema -Table $Table -AsStringArray
+        }
+        if (!$finalKeys) { throw "$Schema.$Table has no primary keys. The Keys parameter must be provided." }
+
+        $sqlNameRegex = [regex]"\A[A-Za-z0-9 _\-]+\Z"
+    }
+    Process
+    {
+        if (!$InputObject) { return }
+        $filterEq = @{}
+        $set = @{}
+        foreach ($property in $InputObject.PSObject.Properties)
+        {
+            if ($property.Name -in $finalKeys) { $filterEq[$property.Name] = $property.Value; continue }
+            if (!$sqlNameRegex.IsMatch($property.Name)) { throw "Property name '$($property.Name)' is not a valid SQL column name." }
+            $set[$property.Name] = $property.Value
+        }
+        if ($filterEq.Keys.Count -ne @($finalKeys).Count)
+        {
+            Write-Error "InputObject '$InputObject' does not have all key properties."
+            return
+        }
+
+        Set-DBRow -Connection $Connection -Schema $Schema -Table $Table -Set $set -FilterEq $filterEq
+    }
+}
+
 Function Define-DBColumn
 {
     Param

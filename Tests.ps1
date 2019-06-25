@@ -100,3 +100,12 @@ Get-DBPrimaryKey DBTest
 Get-DBPrimaryKey DBTest -Table Cluster -Verbose
 Get-DBPrimaryKey DBTest -Schema dbo -Verbose
 Get-DBPrimaryKey DBTest -Table Cluster -AsStringArray
+
+Import-Module (Get-Module DB).Path -Force -DisableNameChecking
+
+[pscustomobject]@{ClusterId=1;ClusterType='SQL_ALT'} | Update-DBRow DBTest -Table Cluster
+Get-DBRow DBTest -Table Cluster | Out-Default
+
+[pscustomobject]@{ClusterName='SQL003';ClusterType='SQL_NEW'} | Update-DBRow DBTest -Table Cluster # Should Error
+[pscustomobject]@{ClusterName='SQL003';ClusterType='SQL_NEW'} | Update-DBRow DBTest -Table Cluster -Keys ClusterName
+Get-DBRow DBTest -Table Cluster | Out-Default
