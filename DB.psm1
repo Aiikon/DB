@@ -740,10 +740,12 @@ Function Set-DBRow
 
         $whereSql, $parameters = Get-DBWhereSql
         $hasFilter = $parameters.Keys.Count -gt 0
+        $sqlNameRegex = [regex]"\A[A-Za-z0-9 _\-]+\Z"
 
         $s = 0
         $setSqlList = foreach ($key in $Set.Keys)
         {
+            if (!$sqlNameRegex.IsMatch($key)) { throw "Name '$($property.Name)' is not a valid SQL column name." }
             "[$key] = @S$s"
             $parameters["S$s"] = $Set.$key
             $s += 1
@@ -779,8 +781,6 @@ Function Update-DBRow
             $finalKeys = Get-DBPrimaryKey -Connection $Connection -Schema $Schema -Table $Table -AsStringArray
         }
         if (!$finalKeys) { throw "$Schema.$Table has no primary keys. The Keys parameter must be provided." }
-
-        $sqlNameRegex = [regex]"\A[A-Za-z0-9 _\-]+\Z"
     }
     Process
     {
@@ -790,7 +790,7 @@ Function Update-DBRow
         foreach ($property in $InputObject.PSObject.Properties)
         {
             if ($property.Name -in $finalKeys) { $filterEq[$property.Name] = $property.Value; continue }
-            if (!$sqlNameRegex.IsMatch($property.Name)) { throw "Property name '$($property.Name)' is not a valid SQL column name." }
+            
             $set[$property.Name] = $property.Value
         }
         if ($filterEq.Keys.Count -ne @($finalKeys).Count)
