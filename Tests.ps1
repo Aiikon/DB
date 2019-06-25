@@ -95,3 +95,8 @@ Get-DBRow DBTest -Table Cluster | Out-Default
 
 Set-DBRow DBTest -Table Cluster -Set @{ClusterType='SQL'} -FilterLike @{ClusterName='SQL%'} -Verbose
 Get-DBRow DBTest -Table Cluster | Out-Default
+
+Get-DBPrimaryKey DBTest
+Get-DBPrimaryKey DBTest -Table Cluster -Verbose
+Get-DBPrimaryKey DBTest -Schema dbo -Verbose
+Get-DBPrimaryKey DBTest -Table Cluster -AsStringArray
