@@ -114,3 +114,14 @@ Get-DBRow DBTest -Table Cluster | Out-Default
 Rename-DBColumn DBTest -Table Cluster -Column ClusterType -NewName ClusterTypeName
 Get-DBRow DBTest -Table Cluster | Out-Default
 Rename-DBColumn DBTest -Table Cluster -Column ClusterTypeName -NewName ClusterType
+
+
+New-DBView DBTest -View TestView -Verbose -SQL @"
+SELECT ClusterId FROM Cluster
+"@
+Get-DBRow DBTest -Table TestView -Verbose | Out-Default
+Get-DBView DBTest | Out-Default # Should show views only
+Get-DBTable DBTest | Out-Default # Should show tables and views
+
+Remove-DBView DBTest -View TestView -Verbose
+Get-DBRow DBTest -Table TestView | Out-Default # Should fail

@@ -392,6 +392,56 @@ Function New-DBTable
     }
 }
 
+Function Get-DBView
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection = Connect-DBConnection $Connection
+        $dbConnection.ConnectionObject.GetSchema('Views')
+    }
+}
+
+Function New-DBView
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $View,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [string] $SQL
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        Invoke-DBQuery $Connection "CREATE VIEW [$Schema].[$View] AS $SQL"
+    }
+}
+
+Function Remove-DBView
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $View,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        if ($PSCmdlet.ShouldProcess("$Schema.$View", 'Drop View'))
+        {
+            Invoke-DBQuery $Connection "DROP VIEW [$Schema].[$View]" -Mode NonQuery | Out-Null
+        }
+    }
+}
+
 Function Get-DBPrimaryKey
 {
     [CmdletBinding(PositionalBinding=$false)]
