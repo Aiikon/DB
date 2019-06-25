@@ -321,6 +321,76 @@ Function Get-DBTable
     }
 }
 
+Function New-DBTable
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [scriptblock] $Definition
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        
+        $definitionList = $Definition.Invoke()
+        $columnDefinitionList = $definitionList | Where-Object DefinitionType -eq Column
+        if (!$columnDefinitionList) { throw "At least one column must be provided" }
+        
+        $primaryKeyDefinition = $definitionList | Where-Object DefinitionType -eq PrimaryKey
+        if (@($primaryKeyDefinition).Count -gt 1) { throw "Only one Define-DBPrimaryKey statement can be provided." }
+        $primaryKeyColumnList = $columnDefinitionList | Where-Object PrimaryKey
+        if ($primaryKeyDefinition -and $primaryKeyColumnList)
+        {
+            throw "PrimaryKey cannot be specified both on Define-DBColumn and with Define-DBPrimaryKey."
+        }
+        if ($primaryKeyColumnList)
+        {
+            $primaryKeyDefinition = Define-DBPrimaryKey -Column $primaryKeyColumnList.Name
+        }
+
+        if (!$primaryKeyDefinition) { Write-Warning "No primary key was specified for $Schema.$Table!" }
+
+        $tableSql = New-Object System.Collections.Generic.List[string]
+        $tableSql.Add("CREATE TABLE [$Schema].[$Table]")
+        $tableSql.Add("(")
+
+        $definitionSqlList = New-Object System.Collections.Generic.List[string]
+
+        foreach ($columnDefinition in $columnDefinitionList)
+        {
+            $columnSql = "    [$($columnDefinition.Name)] $($columnDefinition.Type)"
+            if ($columnDefinition.Type -match "char" -and -not $columnDefinition.Length)
+            {
+                $columnSql += "(MAX)"
+            }
+            elseif ($columnDefinition.Length)
+            {
+                $columnSql += "($($columnDefinition.Length))"
+            }
+            if ($columnDefinition.Required) { $columnSql += " NOT NULL" }
+            else { $columnSql += " NULL" }
+            $definitionSqlList.Add($columnSql)
+        }
+
+        if ($primaryKeyDefinition)
+        {
+            $primaryKeyName = $primaryKeyDefinition.Name
+            if (!$primaryKeyName) { $primaryKeyName = "${Table}_PrimaryKey" }
+            $columnNameSql = $(foreach ($column in $primaryKeyDefinition.Column) { "[$column]" }) -join ','
+            $definitionSqlList.Add("    CONSTRAINT [$primaryKeyName] PRIMARY KEY ($columnNameSql)")
+        }
+
+        $tableSql.Add($definitionSqlList -join ",`r`n")
+        $tableSql.Add(")")
+
+        Invoke-DBQuery $Connection ($tableSql -join "`r`n") -Mode NonQuery | Out-Null
+    }
+}
+
 Function Remove-DBTable
 {
     [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
@@ -635,76 +705,6 @@ Function Set-DBRow
         {
             Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters
         }
-    }
-}
-
-Function New-DBTable
-{
-    [CmdletBinding(PositionalBinding=$false)]
-    Param
-    (
-        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
-        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
-        [Parameter(Mandatory=$true)] [scriptblock] $Definition
-    )
-    End
-    {
-        trap { $PSCmdlet.ThrowTerminatingError($_) }
-        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        
-        $definitionList = $Definition.Invoke()
-        $columnDefinitionList = $definitionList | Where-Object DefinitionType -eq Column
-        if (!$columnDefinitionList) { throw "At least one column must be provided" }
-        
-        $primaryKeyDefinition = $definitionList | Where-Object DefinitionType -eq PrimaryKey
-        if (@($primaryKeyDefinition).Count -gt 1) { throw "Only one Define-DBPrimaryKey statement can be provided." }
-        $primaryKeyColumnList = $columnDefinitionList | Where-Object PrimaryKey
-        if ($primaryKeyDefinition -and $primaryKeyColumnList)
-        {
-            throw "PrimaryKey cannot be specified both on Define-DBColumn and with Define-DBPrimaryKey."
-        }
-        if ($primaryKeyColumnList)
-        {
-            $primaryKeyDefinition = Define-DBPrimaryKey -Column $primaryKeyColumnList.Name
-        }
-
-        if (!$primaryKeyDefinition) { Write-Warning "No primary key was specified for $Schema.$Table!" }
-
-        $tableSql = New-Object System.Collections.Generic.List[string]
-        $tableSql.Add("CREATE TABLE [$Schema].[$Table]")
-        $tableSql.Add("(")
-
-        $definitionSqlList = New-Object System.Collections.Generic.List[string]
-
-        foreach ($columnDefinition in $columnDefinitionList)
-        {
-            $columnSql = "    [$($columnDefinition.Name)] $($columnDefinition.Type)"
-            if ($columnDefinition.Type -match "char" -and -not $columnDefinition.Length)
-            {
-                $columnSql += "(MAX)"
-            }
-            elseif ($columnDefinition.Length)
-            {
-                $columnSql += "($($columnDefinition.Length))"
-            }
-            if ($columnDefinition.Required) { $columnSql += " NOT NULL" }
-            else { $columnSql += " NULL" }
-            $definitionSqlList.Add($columnSql)
-        }
-
-        if ($primaryKeyDefinition)
-        {
-            $primaryKeyName = $primaryKeyDefinition.Name
-            if (!$primaryKeyName) { $primaryKeyName = "${Table}_PrimaryKey" }
-            $columnNameSql = $(foreach ($column in $primaryKeyDefinition.Column) { "[$column]" }) -join ','
-            $definitionSqlList.Add("    CONSTRAINT [$primaryKeyName] PRIMARY KEY ($columnNameSql)")
-        }
-
-        $tableSql.Add($definitionSqlList -join ",`r`n")
-        $tableSql.Add(")")
-
-        Invoke-DBQuery $Connection ($tableSql -join "`r`n") -Mode NonQuery | Out-Null
     }
 }
 
