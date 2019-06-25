@@ -104,7 +104,6 @@ FunctionsToExport = @(
     'Get-DBView'
     'New-DBView'
     'Remove-DBView'
-    'Get-DBPrimaryKey'
     'Get-DBRow'
     'Add-DBRow'
     'Remove-DBRow'
@@ -112,6 +111,7 @@ FunctionsToExport = @(
     'Update-DBRow'
     'Rename-DBColumn'
     'Define-DBColumn'
+    'Get-DBPrimaryKey'
     'Define-DBPrimaryKey'
 )
 

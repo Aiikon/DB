@@ -442,76 +442,6 @@ Function Remove-DBView
     }
 }
 
-Function Get-DBPrimaryKey
-{
-    [CmdletBinding(PositionalBinding=$false)]
-    Param
-    (
-        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
-        [Parameter()] [switch] $AsStringArray
-    )
-    End
-    {
-        trap { $PSCmdlet.ThrowTerminatingError($_) }
-
-        if ($AsStringArray -and -not $Table) { throw "'AsStringArray' can only be provided if 'Table' is also provided." }
-
-        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-
-        if ($AsStringArray)
-        {
-            $dataTable = New-Object System.Data.DataTable
-            $tableAdapter = New-Object System.Data.SqlClient.SqlDataAdapter("SELECT * FROM [$Schema].[$Table]", $dbConnection.ConnectionObject)
-            $commandBuilder = New-Object System.Data.SqlClient.SqlCommandBuilder $tableAdapter
-            $tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
-            $dataTable.Constraints |
-                Where-Object IsPrimaryKey |
-                ForEach-Object Columns |
-                ForEach-Object ColumnName
-            return
-        }
-        
-        $filterSqlList = @()
-        $parameters = @{}
-        if ($Table)
-        {
-            $filterSqlList += "tab.[name] = @TableName"
-            $parameters['TableName'] = $Table
-        }
-        if ($PSBoundParameters['Schema'] -or $Table)
-        {
-            $filterSqlList += "schema_name(tab.schema_id) = @SchemaName"
-            $parameters['SchemaName'] = $Schema
-        }
-        $filterSql = $filterSqlList -join ' AND '
-        if ($filterSql) { $filterSql = "WHERE $filterSql" }
-
-        Invoke-DBQuery $Connection -Parameters $parameters -Query "
-            SELECT schema_name(tab.schema_id) as [Schema],
-                tab.[name] as [Table],
-                pk.[name] as PrimaryKeyName,
-                ic.index_column_id as ColumnId,
-                col.[name] as ColumnName
-            FROM sys.tables tab
-                INNER JOIN sys.indexes pk
-                    on tab.object_id = pk.object_id 
-                    and pk.is_primary_key = 1
-                INNER JOIN sys.index_columns ic
-                    on ic.object_id = pk.object_id
-                    and ic.index_id = pk.index_id
-                INNER JOIN sys.columns col
-                    on pk.object_id = col.object_id
-                    and col.column_id = ic.column_id
-            $filterSql
-           ORDER BY schema_name(tab.schema_id),
-                pk.[name],
-                ic.index_column_id
-        "
-    }
-}
-
 Function Get-DBWhereSql
 {
     [CmdletBinding()]
@@ -902,6 +832,76 @@ Function Define-DBColumn
         $definition.Index = $Index.IsPresent
         $definition.Unique = $Unique.IsPresent
         [pscustomobject]$definition
+    }
+}
+
+Function Get-DBPrimaryKey
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [switch] $AsStringArray
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+
+        if ($AsStringArray -and -not $Table) { throw "'AsStringArray' can only be provided if 'Table' is also provided." }
+
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if ($AsStringArray)
+        {
+            $dataTable = New-Object System.Data.DataTable
+            $tableAdapter = New-Object System.Data.SqlClient.SqlDataAdapter("SELECT * FROM [$Schema].[$Table]", $dbConnection.ConnectionObject)
+            $commandBuilder = New-Object System.Data.SqlClient.SqlCommandBuilder $tableAdapter
+            $tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
+            $dataTable.Constraints |
+                Where-Object IsPrimaryKey |
+                ForEach-Object Columns |
+                ForEach-Object ColumnName
+            return
+        }
+        
+        $filterSqlList = @()
+        $parameters = @{}
+        if ($Table)
+        {
+            $filterSqlList += "tab.[name] = @TableName"
+            $parameters['TableName'] = $Table
+        }
+        if ($PSBoundParameters['Schema'] -or $Table)
+        {
+            $filterSqlList += "schema_name(tab.schema_id) = @SchemaName"
+            $parameters['SchemaName'] = $Schema
+        }
+        $filterSql = $filterSqlList -join ' AND '
+        if ($filterSql) { $filterSql = "WHERE $filterSql" }
+
+        Invoke-DBQuery $Connection -Parameters $parameters -Query "
+            SELECT schema_name(tab.schema_id) as [Schema],
+                tab.[name] as [Table],
+                pk.[name] as PrimaryKeyName,
+                ic.index_column_id as ColumnId,
+                col.[name] as ColumnName
+            FROM sys.tables tab
+                INNER JOIN sys.indexes pk
+                    on tab.object_id = pk.object_id 
+                    and pk.is_primary_key = 1
+                INNER JOIN sys.index_columns ic
+                    on ic.object_id = pk.object_id
+                    and ic.index_id = pk.index_id
+                INNER JOIN sys.columns col
+                    on pk.object_id = col.object_id
+                    and col.column_id = ic.column_id
+            $filterSql
+           ORDER BY schema_name(tab.schema_id),
+                pk.[name],
+                ic.index_column_id
+        "
     }
 }
 
