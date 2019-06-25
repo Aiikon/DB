@@ -573,6 +573,8 @@ Function Remove-DBRow
     )
     End
     {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
         $whereSql, $parameters = Get-DBWhereSql
