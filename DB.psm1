@@ -69,6 +69,7 @@ Function Connect-DBConnection
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
         $dbConnection = $Script:ModuleConfig.Connections[$Connection]
+        if (!$dbConnection) { throw "Connection '$Connection' is not defined." }
         if ($dbConnection.ConnectionObject.State -ne 'Open')
         {
             $dbConnection.ConnectionObject.Open()
