@@ -125,3 +125,9 @@ Get-DBTable DBTest | Out-Default # Should show tables and views
 
 Remove-DBView DBTest -View TestView -Verbose
 Get-DBRow DBTest -Table TestView | Out-Default # Should fail
+
+Get-DBColumn DBTest -Verbose | Measure-Object
+Get-DBColumn DBTest -Schema dbo -Verbose | Measure-Object
+Get-DBColumn DBTest -Table Cluster -Verbose | Measure-Object
+Get-DBColumn DBTest -Table Cluster -Column ClusterId -Verbose | Measure-Object
+Get-DBColumn DBTest -Column ClusterId -Verbose | Measure-Object

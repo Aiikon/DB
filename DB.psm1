@@ -783,6 +783,37 @@ Function Update-DBRow
     }
 }
 
+Function Get-DBColumn
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter()] [string] $Schema,
+        [Parameter()] [string] $Table,
+        [Parameter()] [string[]] $Column
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        
+        $filterEq = @{}
+        if ($Table)
+        {
+            $filterEq['TABLE_NAME'] = $Table
+        }
+        if ($PSBoundParameters['Schema'] -or $Table)
+        {
+            $filterEq['TABLE_SCHEMA'] = $Schema
+        }
+        if ($Column)
+        {
+            $filterEq['COLUMN_NAME'] = $Column
+        }
+
+        Get-DBRow $Connection -Schema INFORMATION_SCHEMA -Table COLUMNS -FilterEq $filterEq
+    }
+}
+
 Function Rename-DBColumn
 {
     Param
