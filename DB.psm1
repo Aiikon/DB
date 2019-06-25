@@ -554,6 +554,7 @@ Function Add-DBRow
 
 Function Remove-DBRow
 {
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
@@ -578,7 +579,11 @@ Function Remove-DBRow
 
         $query = "DELETE FROM [$Schema].[$Table]$whereSql"
 
-        Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters
+        $hasFilter = $parameters.Keys.Count -gt 0
+        if ($hasFilter -or $PSCmdlet.ShouldProcess("$Schema.$Table", 'Remove All Rows'))
+        {
+            Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters
+        }
     }
 }
 

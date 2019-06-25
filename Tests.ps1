@@ -46,6 +46,8 @@ Get-DBRow DBTest -Table Cluster -Verbose -FilterNotNull ClusterType | Out-Defaul
 
 Remove-DBRow DBTest -Table Cluster -Verbose -FilterEq @{ClusterId=1} | Out-Default
 
+Remove-DBRow DBTest -Table Cluster -Verbose | Out-Default # Should prompt for confirmation
+
 Write-Host -ForegroundColor Magenta "Starting Transaction Test (Undo)"
 Use-DBTransaction DBTest -Verbose
 Remove-DBRow DBTest -Table Cluster -Verbose -FilterLike @{ClusterId="%"} | Out-Default
