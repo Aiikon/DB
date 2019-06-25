@@ -89,3 +89,9 @@ ClusterId,ClusterName,ClusterType
 8,WAFile,File
 "@ | ConvertFrom-Csv | Add-DBRow DBTest -Table Cluster -BulkCopy
 Complete-DBTransaction DBTest
+
+Set-DBRow DBTest -Table Cluster -Set @{ClusterType='Unknown'} -Verbose
+Get-DBRow DBTest -Table Cluster | Out-Default
+
+Set-DBRow DBTest -Table Cluster -Set @{ClusterType='SQL'} -FilterLike @{ClusterName='SQL%'} -Verbose
+Get-DBRow DBTest -Table Cluster | Out-Default

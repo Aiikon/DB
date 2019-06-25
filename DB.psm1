@@ -589,6 +589,55 @@ Function Remove-DBRow
     }
 }
 
+Function Set-DBRow
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [hashtable] $Set,
+        [Parameter()] [hashtable] $FilterEq,
+        [Parameter()] [hashtable] $FilterNe,
+        [Parameter()] [hashtable] $FilterGt,
+        [Parameter()] [hashtable] $FilterGe,
+        [Parameter()] [hashtable] $FilterLt,
+        [Parameter()] [hashtable] $FilterLe,
+        [Parameter()] [hashtable] $FilterLike,
+        [Parameter()] [hashtable] $FilterNotLike,
+        [Parameter()] [string[]] $FilterNull,
+        [Parameter()] [string[]] $FilterNotNull
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+
+        if (!$Set.Keys.Count) { throw "One or more Set values are required." }
+
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        $whereSql, $parameters = Get-DBWhereSql
+        $hasFilter = $parameters.Keys.Count -gt 0
+
+        $s = 0
+        $setSqlList = foreach ($key in $Set.Keys)
+        {
+            "[$key] = @S$s"
+            $parameters["S$s"] = $Set.$key
+            $s += 1
+        }
+        $setSql = $setSqlList -join ', '
+
+        $query = "UPDATE [$Schema].[$Table] SET $setSql$whereSql"
+
+        if ($hasFilter -or $PSCmdlet.ShouldProcess("$Schema.$Table", 'Update All Rows'))
+        {
+            Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters
+        }
+    }
+}
+
 Function New-DBTable
 {
     [CmdletBinding(PositionalBinding=$false)]
