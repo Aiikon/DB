@@ -803,6 +803,24 @@ Function Update-DBRow
     }
 }
 
+Function Rename-DBColumn
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Column,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $NewName
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        Invoke-DBQuery $Connection "EXEC sp_rename '[$Schema].[$Table].[$Column]', '$NewName', 'COLUMN';"
+    }
+}
+
 Function Define-DBColumn
 {
     Param

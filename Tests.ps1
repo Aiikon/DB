@@ -109,3 +109,8 @@ Get-DBRow DBTest -Table Cluster | Out-Default
 [pscustomobject]@{ClusterName='SQL003';ClusterType='SQL_NEW'} | Update-DBRow DBTest -Table Cluster # Should Error
 [pscustomobject]@{ClusterName='SQL003';ClusterType='SQL_NEW'} | Update-DBRow DBTest -Table Cluster -Keys ClusterName
 Get-DBRow DBTest -Table Cluster | Out-Default
+
+
+Rename-DBColumn DBTest -Table Cluster -Column ClusterType -NewName ClusterTypeName
+Get-DBRow DBTest -Table Cluster | Out-Default
+Rename-DBColumn DBTest -Table Cluster -Column ClusterTypeName -NewName ClusterType

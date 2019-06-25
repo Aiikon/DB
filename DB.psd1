@@ -107,6 +107,7 @@ FunctionsToExport = @(
     'Remove-DBRow'
     'Set-DBRow'
     'Update-DBRow'
+    'Rename-DBColumn'
     'Define-DBColumn'
     'Define-DBPrimaryKey'
 )
