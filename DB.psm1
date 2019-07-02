@@ -363,17 +363,7 @@ Function New-DBTable
 
         foreach ($columnDefinition in $columnDefinitionList)
         {
-            $columnSql = "    [$($columnDefinition.Name)] $($columnDefinition.Type)"
-            if ($columnDefinition.Type -match "char" -and -not $columnDefinition.Length)
-            {
-                $columnSql += "(MAX)"
-            }
-            elseif ($columnDefinition.Length)
-            {
-                $columnSql += "($($columnDefinition.Length))"
-            }
-            if ($columnDefinition.Required) { $columnSql += " NOT NULL" }
-            else { $columnSql += " NULL" }
+            $columnSql = "    " + (Get-DBColumnSql $columnDefinition.Name $columnDefinition.Type -Length $columnDefinition.Length -Required:$columnDefinition.Required)
             $definitionSqlList.Add($columnSql)
         }
 
@@ -802,6 +792,32 @@ Function Update-DBRow
     }
 }
 
+Function Get-DBColumnSql
+{
+    Param
+    (
+        [Parameter(Mandatory=$true,Position=0)] [string] $Column,
+        [Parameter(Mandatory=$true,Position=1)] [string] $Type,
+        [Parameter()] [int] $Length,
+        [Parameter()] [switch] $Required
+    )
+    End
+    {
+        $columnSql = "[$Column] $Type"
+        if ($columnDefinition.Type -match "char" -and -not $columnDefinition.Length)
+        {
+            $columnSql += "(MAX)"
+        }
+        elseif ($columnDefinition.Length)
+        {
+            $columnSql += "($($columnDefinition.Length))"
+        }
+        if ($columnDefinition.Required) { $columnSql += " NOT NULL" }
+        else { $columnSql += " NULL" }
+        $columnSql
+    }
+}
+
 Function Get-DBColumn
 {
     Param
@@ -853,17 +869,7 @@ Function New-DBColumn
     End
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        $columnSql = "[$Column] $Type"
-        if ($columnDefinition.Type -match "char" -and -not $columnDefinition.Length)
-        {
-            $columnSql += "(MAX)"
-        }
-        elseif ($columnDefinition.Length)
-        {
-            $columnSql += "($($columnDefinition.Length))"
-        }
-        if ($columnDefinition.Required) { $columnSql += " NOT NULL" }
-        else { $columnSql += " NULL" }
+        $columnSql = Get-DBColumnSql $Column $Type -Length $Length -Required:$Required
 
         Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ADD $columnSql"
     }
