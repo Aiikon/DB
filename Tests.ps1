@@ -138,3 +138,8 @@ Get-DBColumn DBTest -Column ClusterId -Verbose | Measure-Object
 New-DBColumn DBTest -Table Cluster -Column Label -Type nvarchar -Verbose
 Get-DBColumn DBTest -Table Cluster -Column Label -Verbose
 Remove-DBColumn DBTest -Table Cluster -Column Label -Verbose
+
+
+Remove-DBConstraint DBTest -Table Cluster -Constraint (Get-DBPrimaryKey DBTest -Table Cluster).PrimaryKeyName -Verbose
+Get-DBPrimaryKey DBTest -Table Cluster | Out-Default
+New-DBPrimaryKey DBTest -Table Cluster -Column ClusterId -Verbose

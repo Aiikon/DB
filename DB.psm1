@@ -943,6 +943,27 @@ Function Define-DBColumn
     }
 }
 
+Function Remove-DBConstraint
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High', PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Constraint
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Constraint", 'Drop Constraint'))
+        {
+            Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] DROP CONSTRAINT [$Constraint]"
+        }
+    }
+}
+
 Function Get-DBPrimaryKey
 {
     [CmdletBinding(PositionalBinding=$false)]
@@ -1010,6 +1031,29 @@ Function Get-DBPrimaryKey
                 pk.[name],
                 ic.index_column_id
         "
+    }
+}
+
+Function New-DBPrimaryKey
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $Column,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Name
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        $primaryKeyName = $Name
+        if (!$primaryKeyName) { $primaryKeyName = "PK_${Table}" }
+        $columnNameSql = $(foreach ($c in $Column) { "[$c]" }) -join ','
+
+        Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ADD CONSTRAINT [$primaryKeyName] PRIMARY KEY ($columnNameSql)"
     }
 }
 
