@@ -370,7 +370,7 @@ Function New-DBTable
         if ($primaryKeyDefinition)
         {
             $primaryKeyName = $primaryKeyDefinition.Name
-            if (!$primaryKeyName) { $primaryKeyName = "${Table}_PrimaryKey" }
+            if (!$primaryKeyName) { $primaryKeyName = "PK_${Table}" }
             $columnNameSql = $(foreach ($column in $primaryKeyDefinition.Column) { "[$column]" }) -join ','
             $definitionSqlList.Add("    CONSTRAINT [$primaryKeyName] PRIMARY KEY ($columnNameSql)")
         }
