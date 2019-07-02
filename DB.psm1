@@ -392,6 +392,25 @@ Function New-DBTable
     }
 }
 
+Function Remove-DBTable
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table", 'Drop Table'))
+        {
+            Invoke-DBQuery $Connection "DROP TABLE [$Schema].[$Table]" -Mode NonQuery | Out-Null
+        }
+    }
+}
+
 Function Get-DBView
 {
     Param
