@@ -1006,7 +1006,7 @@ Function Get-DBPrimaryKey
                     on pk.object_id = col.object_id
                     and col.column_id = ic.column_id
             $filterSql
-           ORDER BY schema_name(tab.schema_id),
+            ORDER BY schema_name(tab.schema_id),
                 pk.[name],
                 ic.index_column_id
         "
