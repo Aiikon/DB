@@ -135,6 +135,6 @@ Get-DBColumn DBTest -Table Cluster -Column ClusterId -Verbose | Measure-Object
 Get-DBColumn DBTest -Column ClusterId -Verbose | Measure-Object
 
 
-New-DBColumn DBTest -Table Cluster -Column Label -Type nvarchar
-Get-DBColumn DBTest -Table Cluster -Column Label
-Remove-DBColumn DBTest -Table Cluster -Column Label
+New-DBColumn DBTest -Table Cluster -Column Label -Type nvarchar -Verbose
+Get-DBColumn DBTest -Table Cluster -Column Label -Verbose
+Remove-DBColumn DBTest -Table Cluster -Column Label -Verbose
