@@ -804,15 +804,15 @@ Function Get-DBColumnSql
     End
     {
         $columnSql = "[$Column] $Type"
-        if ($columnDefinition.Type -match "char" -and -not $columnDefinition.Length)
+        if ($Type -match "char" -and -not $Length)
         {
             $columnSql += "(MAX)"
         }
-        elseif ($columnDefinition.Length)
+        elseif ($Length)
         {
-            $columnSql += "($($columnDefinition.Length))"
+            $columnSql += "($Length)"
         }
-        if ($columnDefinition.Required) { $columnSql += " NOT NULL" }
+        if ($Required) { $columnSql += " NOT NULL" }
         else { $columnSql += " NULL" }
         $columnSql
     }
