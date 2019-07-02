@@ -970,6 +970,117 @@ Function Define-DBColumn
     }
 }
 
+Function Get-DBIndex
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Column
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        $filterSqlList = @()
+        $parameters = @{}
+        if ($Table)
+        {
+            $filterSqlList += "t.name = @TableName"
+            $parameters['TableName'] = $Table
+        }
+        if ($PSBoundParameters['Schema'] -or $Table)
+        {
+            $filterSqlList += "s.name = @SchemaName"
+            $parameters['SchemaName'] = $Schema
+        }
+        if ($PSBoundParameters['Column'])
+        {
+            $filterSqlList += "col.name = @Column"
+            $parameters['Column'] = $Column
+        }
+        $filterSql = $filterSqlList -join ' AND '
+        if ($filterSql) { $filterSql = "AND $filterSql" }
+
+        Invoke-DBQuery $Connection -Parameters $parameters -Query "
+            SELECT
+                s.name SchemaName,
+                t.name TableName,
+                ind.name IndexName,
+                ind.index_id IndexId,
+                ic.index_column_id ColumnId,
+                col.name ColumnName,
+                ind.is_primary_key IsPrimaryKey,
+                ind.is_unique IsUnique,
+                ind.is_unique_constraint IsUniqueConstraint
+            FROM
+                sys.indexes ind
+            INNER JOIN
+                sys.index_columns ic ON ind.object_id = ic.object_id and ind.index_id = ic.index_id
+            INNER JOIN
+                sys.columns col ON ic.object_id = col.object_id and ic.column_id = col.column_id
+            INNER JOIN
+                sys.tables t ON ind.object_id = t.object_id
+            INNER JOIN
+                sys.schemas s ON t.schema_id = s.schema_id
+            WHERE
+                t.is_ms_shipped = 0
+                $filterSql
+            ORDER BY
+                s.name, t.name, ind.name, ind.index_id, ic.index_column_id
+        "
+    }
+}
+
+Function New-DBIndex
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $Column,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Index,
+        [Parameter()] [ValidateSet('NonClustered', 'Clustered', 'Unique')] [string] $Type = 'NonClustered'
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        $columnNameSql = $(foreach ($c in $Column) { "[$c]" }) -join ','
+
+        Invoke-DBQuery $Connection "CREATE $Type INDEX [$Name] ON [$Schema].[$Table] ($columnNameSql)"
+    }
+}
+
+Function Remove-DBIndex
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High', PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Index
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        $columnNameSql = $(foreach ($c in $Column) { "[$c]" }) -join ','
+
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Index", 'Drop Index'))
+        {
+            Invoke-DBQuery $Connection "DROP INDEX [$Index] ON [$Schema].[$Table]"
+        }
+    }
+}
+
 Function Remove-DBConstraint
 {
     [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High', PositionalBinding=$false)]

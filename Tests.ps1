@@ -145,3 +145,9 @@ Get-DBPrimaryKey DBTest -Table Cluster | Out-Default
 New-DBPrimaryKey DBTest -Table Cluster -Column ClusterId -Verbose
 
 Update-DBColumn DBTest -Table Cluster -Column ClusterId -Type int -Required -Verbose
+
+
+New-DBIndex DBTest -Table Cluster -Column ClusterName -Type Unique -Index AK_ClusterName -Verbose
+Get-DBIndex DBTest -Verbose
+Remove-DBIndex DBTest -Table Cluster -Index AK_ClusterName -Verbose
+Get-DBIndex DBTest -Table Cluster -Column ClusterName -Verbose
