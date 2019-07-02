@@ -143,3 +143,5 @@ Remove-DBColumn DBTest -Table Cluster -Column Label -Verbose
 Remove-DBConstraint DBTest -Table Cluster -Constraint (Get-DBPrimaryKey DBTest -Table Cluster).PrimaryKeyName -Verbose
 Get-DBPrimaryKey DBTest -Table Cluster | Out-Default
 New-DBPrimaryKey DBTest -Table Cluster -Column ClusterId -Verbose
+
+Update-DBColumn DBTest -Table Cluster -Column ClusterId -Type int -Required -Verbose

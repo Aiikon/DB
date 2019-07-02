@@ -112,6 +112,7 @@ FunctionsToExport = @(
     'Get-DBColumn'
     'New-DBColumn'
     'Remove-DBColumn'
+    'Update-DBColumn'
     'Rename-DBColumn'
     'Define-DBColumn'
     'Remove-DBConstraint'

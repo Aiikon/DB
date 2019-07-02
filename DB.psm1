@@ -913,6 +913,33 @@ Function Rename-DBColumn
     }
 }
 
+Function Update-DBColumn
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Column,
+        [Parameter(Mandatory=$true)] [ValidateSet('nvarchar', 'nchar', 'varchar', 'char',
+            'bigint', 'int', 'smallint', 'tinyint', 'bit',
+            'numeric', 'decimal', 'money', 'smallmoney',
+            'datetime', 'date', 'time',
+            'ntext', 'varbinary', 'uniqueidentifier')] [string] $Type,
+        [Parameter()] [int] $Length,
+        [Parameter()] [switch] $Required
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        $columnSql = Get-DBColumnSql $Column $Type -Length $Length -Required:$Required
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Column", 'Alter Column'))
+        {
+            Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ALTER COLUMN $columnSql"
+        }
+    }
+}
+
 Function Define-DBColumn
 {
     Param
