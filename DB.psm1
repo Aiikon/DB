@@ -863,9 +863,7 @@ Function Define-DBColumn
             'ntext', 'varbinary', 'uniqueidentifier')] [string] $Type,
         [Parameter(Position=2)] [int] $Length,
         [Parameter()] [switch] $Required,
-        [Parameter()] [switch] $PrimaryKey,
-        [Parameter()] [switch] $Index,
-        [Parameter()] [switch] $Unique
+        [Parameter()] [switch] $PrimaryKey
     )
     End
     {
@@ -879,8 +877,6 @@ Function Define-DBColumn
         $definition.Length = $Length
         $definition.Required = $Required.IsPresent
         $definition.PrimaryKey = $PrimaryKey.IsPresent
-        $definition.Index = $Index.IsPresent
-        $definition.Unique = $Unique.IsPresent
         [pscustomobject]$definition
     }
 }
