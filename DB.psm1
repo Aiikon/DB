@@ -833,6 +833,62 @@ Function Get-DBColumn
     }
 }
 
+Function New-DBColumn
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Column,
+        [Parameter(Mandatory=$true)] [ValidateSet('nvarchar', 'nchar', 'varchar', 'char',
+            'bigint', 'int', 'smallint', 'tinyint', 'bit',
+            'numeric', 'decimal', 'money', 'smallmoney',
+            'datetime', 'date', 'time',
+            'ntext', 'varbinary', 'uniqueidentifier')] [string] $Type,
+        [Parameter()] [int] $Length,
+        [Parameter()] [switch] $Required
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        $columnSql = "[$Column] $Type"
+        if ($columnDefinition.Type -match "char" -and -not $columnDefinition.Length)
+        {
+            $columnSql += "(MAX)"
+        }
+        elseif ($columnDefinition.Length)
+        {
+            $columnSql += "($($columnDefinition.Length))"
+        }
+        if ($columnDefinition.Required) { $columnSql += " NOT NULL" }
+        else { $columnSql += " NULL" }
+
+        Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ADD $columnSql"
+    }
+}
+
+Function Remove-DBColumn
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High', PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Column
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Column", 'Drop Column'))
+        {
+            Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] DROP COLUMN [$Column]"
+        }
+    }
+}
+
 Function Rename-DBColumn
 {
     Param

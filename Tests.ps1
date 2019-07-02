@@ -101,6 +101,8 @@ Get-DBPrimaryKey DBTest -Table Cluster -Verbose
 Get-DBPrimaryKey DBTest -Schema dbo -Verbose
 Get-DBPrimaryKey DBTest -Table Cluster -AsStringArray
 
+
+# ==================================================================================================================
 Import-Module (Get-Module DB).Path -Force -DisableNameChecking
 
 [pscustomobject]@{ClusterId=1;ClusterType='SQL_ALT'} | Update-DBRow DBTest -Table Cluster
@@ -131,3 +133,8 @@ Get-DBColumn DBTest -Schema dbo -Verbose | Measure-Object
 Get-DBColumn DBTest -Table Cluster -Verbose | Measure-Object
 Get-DBColumn DBTest -Table Cluster -Column ClusterId -Verbose | Measure-Object
 Get-DBColumn DBTest -Column ClusterId -Verbose | Measure-Object
+
+
+New-DBColumn DBTest -Table Cluster -Column Label -Type nvarchar
+Get-DBColumn DBTest -Table Cluster -Column Label
+Remove-DBColumn DBTest -Table Cluster -Column Label
