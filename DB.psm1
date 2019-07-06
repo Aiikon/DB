@@ -1045,12 +1045,20 @@ Function New-DBIndex
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $Column,
-        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Index,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Index,
         [Parameter()] [ValidateSet('NonClustered', 'Clustered', 'Unique')] [string] $Type = 'NonClustered'
     )
     End
     {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if (!$Index)
+        {
+            if ($Column.Count -ne 1) { throw "The Index parameter must be specified if more than one Column is used." }
+            if ($Type -eq 'Unique') { $Index = "AK_$($Column[0])" }
+            else  { $Index = "IX_$($Column[0])" }
+        }
 
         $columnNameSql = $(foreach ($c in $Column) { "[$c]" }) -join ','
 
