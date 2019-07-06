@@ -1054,7 +1054,7 @@ Function New-DBIndex
 
         $columnNameSql = $(foreach ($c in $Column) { "[$c]" }) -join ','
 
-        Invoke-DBQuery $Connection "CREATE $Type INDEX [$Name] ON [$Schema].[$Table] ($columnNameSql)"
+        Invoke-DBQuery $Connection "CREATE $Type INDEX [$Index] ON [$Schema].[$Table] ($columnNameSql)"
     }
 }
 
