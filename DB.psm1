@@ -363,8 +363,17 @@ Function New-DBTable
 
         foreach ($columnDefinition in $columnDefinitionList)
         {
+            $columnName = $columnDefinition.Name
             $columnSql = "    " + (Get-DBColumnSql $columnDefinition.Name $columnDefinition.Type -Length $columnDefinition.Length -Required:$columnDefinition.Required)
             $definitionSqlList.Add($columnSql)
+            if ($columnDefinition.Unique)
+            {
+                $definitionSqlList.Add("    CONSTRAINT [AK_$columnName] UNIQUE ([$columnName])")
+            }
+            elseif ($columnDefinition.Index)
+            {
+                $definitionSqlList.Add("    INDEX [IX_$columnName] ([$columnName])")
+            }
         }
 
         if ($primaryKeyDefinition)
@@ -374,6 +383,24 @@ Function New-DBTable
             $columnNameSql = $(foreach ($column in $primaryKeyDefinition.Column) { "[$column]" }) -join ','
             $definitionSqlList.Add("    CONSTRAINT [$primaryKeyName] PRIMARY KEY ($columnNameSql)")
         }
+
+        $columnDefinitionList |
+            Where-Object UniqueIndexName |
+            ForEach-Object { foreach ($index in $_.UniqueIndexName) { [pscustomobject]@{Index=$index; Column=$_.Name} } } |
+            Group-Object Index |
+            ForEach-Object {
+                $columnNameSql = $(foreach ($column in $_.Group.Column) { "[$column]" }) -join ','
+                $definitionSqlList.Add("    CONSTRAINT [$($_.Name)] UNIQUE ($columnNameSql)")
+            }
+
+        $columnDefinitionList |
+            Where-Object IndexName |
+            ForEach-Object { foreach ($index in $_.IndexName) { [pscustomobject]@{Index=$index; Column=$_.Name} } } |
+            Group-Object Index |
+            ForEach-Object {
+                $columnNameSql = $(foreach ($column in $_.Group.Column) { "[$column]" }) -join ','
+                $definitionSqlList.Add("    INDEX [$($_.Name)] ($columnNameSql)")
+            }
 
         $tableSql.Add($definitionSqlList -join ",`r`n")
         $tableSql.Add(")")
@@ -952,7 +979,11 @@ Function Define-DBColumn
             'ntext', 'varbinary', 'uniqueidentifier')] [string] $Type,
         [Parameter(Position=2)] [int] $Length,
         [Parameter()] [switch] $Required,
-        [Parameter()] [switch] $PrimaryKey
+        [Parameter()] [switch] $PrimaryKey,
+        [Parameter()] [switch] $Index,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $IndexName,
+        [Parameter()] [switch] $Unique,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $UniqueIndexName
     )
     End
     {
@@ -966,6 +997,10 @@ Function Define-DBColumn
         $definition.Length = $Length
         $definition.Required = $Required.IsPresent
         $definition.PrimaryKey = $PrimaryKey.IsPresent
+        $definition.Index = $Index.IsPresent
+        $definition.IndexName = $IndexName
+        $definition.Unique = $Unique.IsPresent
+        $definition.UniqueIndexName = $UniqueIndexName
         [pscustomobject]$definition
     }
 }

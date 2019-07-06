@@ -151,3 +151,15 @@ New-DBIndex DBTest -Table Cluster -Column ClusterName -Type Unique -Index AK_Clu
 Get-DBIndex DBTest -Verbose
 Remove-DBIndex DBTest -Table Cluster -Index AK_ClusterName -Verbose
 Get-DBIndex DBTest -Table Cluster -Column ClusterName -Verbose
+
+
+New-DBTable DBTest -Table IndexTest -Verbose -Definition {
+    Define-DBColumn TestId int -Required -PrimaryKey
+    Define-DBColumn TestAlternateKey int -Required -Unique
+    Define-DBColumn TestIndex int -Index
+    Define-DBColumn TestIndexC1 int -IndexName IX_C12
+    Define-DBColumn TestIndexC2 int -IndexName IX_C12
+    Define-DBColumn TestAK1 int -UniqueIndexName AK_12
+    Define-DBColumn TestAK2 int -UniqueIndexName AK_12
+}
+Remove-DBTable DBTest -Table IndexTest -Confirm:$false -ErrorAction SilentlyContinue
