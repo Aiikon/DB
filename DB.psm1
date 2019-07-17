@@ -601,6 +601,8 @@ Function Get-DBRow
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $Column,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [switch] $Unique,
+        [Parameter()] [switch] $Count,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
@@ -614,21 +616,46 @@ Function Get-DBRow
     )
     End
     {
+        # Don't put a trap {} here or 'Select-Object -First' will throw a pipeline has been stopped exception.
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
         $whereSql, $parameters = Get-DBWhereSql
 
+        $columnList = @()
         $columnSql = '*'
         if ($Column)
         {
-            $columnList = foreach ($c in $Column)
+            foreach ($c in $Column)
             {
-                "[$c]"
+                $columnList += "[$c]"
             }
+        }
+
+        if ($Count)
+        {
+            trap { $PSCmdlet.ThrowTerminatingError($_) }
+            if (!$Unique -or !$Column) { throw "-Column and -Unique must be specified if -Count is specified." }
+            $columnList += "COUNT(*) [Count]"
+        }
+
+        if ($columnList.Count)
+        {
             $columnSql = $columnList -join ','
         }
 
-        $query = "SELECT $columnSql FROM [$Schema].[$Table]$whereSql"
+        $groupSql = ''
+        if ($Unique)
+        {
+            trap { $PSCmdlet.ThrowTerminatingError($_) }
+            if (!$Column) { throw "-Column must be specified if -Unique is specified." }
+            $groupList = foreach ($c in $Column)
+            {
+                "[$c]"
+            }
+            $groupSql = "GROUP BY $($groupList -join ',')"
+        }
+
+        $query = "SELECT $columnSql FROM [$Schema].[$Table]$whereSql$groupSql"
 
         Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters
     }
