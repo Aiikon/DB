@@ -72,13 +72,15 @@ Describe 'DB Module' {
         }
 
         It 'Get-DBRow -Column' {
-            $properties = Get-DBRow DBTest -Table Cluster -Column ClusterId, ClusterName |
+            $properties = Get-DBRow DBTest -Table Cluster -Column ClusterName, ClusterType |
                 Select-Object -First 1 |
                 ForEach-Object PSObject |
                 ForEach-Object Properties
 
-            $properties[0].Name | Should Be ClusterId
-            $properties[1].Name | Should Be ClusterName
+            $properties[0].Name | Should Be ClusterName
+            $properties[1].Name | Should Be ClusterType
+            $properties[2].Name | Should BeNullOrEmpty
+        }
         }
 
         It 'Get-DBRow -FilterEq' {
