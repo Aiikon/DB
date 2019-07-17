@@ -581,6 +581,28 @@ Function Get-DBWhereSql
             }
         }
 
+        if ($FilterExists)
+        {
+            $propertyNames = $FilterExists[0].PSObject.Properties.Name
+            $badNames = @($propertyNames) -notmatch "\A[A-Za-z0-9 _\-]+\Z" -join ', '
+            if ($badNames) { throw "The properties '$badNames' are invalid SQL column names." }
+
+            $string = New-Object System.Text.StringBuilder
+
+            $temp1 = foreach ($object in $FilterExists)
+            {
+                $temp2 = foreach ($property in $propertyNames)
+                {
+                    "[$property] = @P$p"
+                    $parameterDict["P$p"] = $object.$property
+                    $p += 1
+                }
+                $temp2 -join ' AND '
+            }
+
+            $whereList.Add("($($temp1 -join ' OR '))")
+        }
+
         if ($whereList.Count)
         {
             " WHERE $($whereList -join ' AND ')"
@@ -612,7 +634,8 @@ Function Get-DBRow
         [Parameter()] [hashtable] $FilterLike,
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
-        [Parameter()] [string[]] $FilterNotNull
+        [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
     )
     End
     {
@@ -751,7 +774,8 @@ Function Remove-DBRow
         [Parameter()] [hashtable] $FilterLike,
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
-        [Parameter()] [string[]] $FilterNotNull
+        [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
     )
     End
     {
@@ -789,7 +813,8 @@ Function Set-DBRow
         [Parameter()] [hashtable] $FilterLike,
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
-        [Parameter()] [string[]] $FilterNotNull
+        [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
     )
     End
     {
