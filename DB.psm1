@@ -180,8 +180,7 @@ Function Invoke-DBQuery
 
             $reader = $command.ExecuteReader()
 
-            $propertyList = $reader.GetSchemaTable() |
-                Select-Object ColumnName, DataTypeName
+            $propertyList = $reader.GetSchemaTable()
 
             while ($reader.Read())
             {
