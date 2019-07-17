@@ -537,6 +537,7 @@ Function Get-DBWhereSql
                     }
                     elseif ($op -in 'Like', 'NotLike')
                     {
+                        $join = ' OR '
                         if ($op -eq 'NotLike') { $join = ' AND ' }
                         $temp = foreach ($newValue in $value)
                         {
@@ -544,7 +545,6 @@ Function Get-DBWhereSql
                             $parameterDict["P$p"] = $newValue
                             $p += 1
                         }
-                        $join = ' OR '
                         $whereList.Add("($($temp -join $join))")
                     }
                     else
