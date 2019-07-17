@@ -81,6 +81,20 @@ Describe 'DB Module' {
             $properties[1].Name | Should Be ClusterType
             $properties[2].Name | Should BeNullOrEmpty
         }
+
+        It 'Get-DBRow -Column -Unique' {
+            $results = Get-DBRow DBTest -Table Cluster -Column ClusterType -Unique
+
+            @($results).Count | Should Be 2
+            $results[0].PSObject.Properties.Name | Should Be ClusterType
+        }
+
+        It 'Get-DBRow -Column -Unique -Count' {
+            $results = Get-DBRow DBTest -Table Cluster -Column ClusterType -Unique -Count
+
+            @($results).Count | Should Be 2
+            @($results[0].PSObject.Properties)[0].Name | Should Be ClusterType
+            @($results[0].PSObject.Properties)[1].Name | Should Be Count
         }
 
         It 'Get-DBRow -FilterEq' {
