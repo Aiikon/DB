@@ -618,7 +618,17 @@ Function Get-DBRow
 
         $whereSql, $parameters = Get-DBWhereSql
 
-        $query = "SELECT * FROM [$Schema].[$Table]$whereSql"
+        $columnSql = '*'
+        if ($Column)
+        {
+            $columnList = foreach ($c in $Column)
+            {
+                "[$c]"
+            }
+            $columnSql = $columnList -join ','
+        }
+
+        $query = "SELECT $columnSql FROM [$Schema].[$Table]$whereSql"
 
         Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters
     }
