@@ -145,6 +145,22 @@ Describe 'DB Module' {
             @(Get-DBRow DBTest -Table Cluster -FilterNotNull ClusterType).Count | Should Be 5
         }
 
+        It 'Get-DBRow -FilterExists' {
+            $exists = "
+                ClusterId,ClusterName
+                1,SQL001
+                2,SQLBADNAME
+                3,CAFile
+            ".Trim() -replace ' ' | ConvertFrom-Csv
+
+            $results = Get-DBRow DBTest -Table Cluster -FilterExists $exists |
+                Sort-Object ClusterId
+
+            @($results).Count | Should Be 2
+            $results[0].ClusterId | Should Be 1
+            $results[1].ClusterId | Should Be 3
+        }
+
         It 'Remove-DBRow -FilterEq' {
             Remove-DBRow DBTest -Table Cluster -FilterEq @{ClusterId=1}
             @(Get-DBRow DBTest -Table Cluster).Count | Should Be 4
