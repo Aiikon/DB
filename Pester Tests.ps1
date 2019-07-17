@@ -71,6 +71,16 @@ Describe 'DB Module' {
             (Get-DBRow DBTest -Table Cluster).Count | Should Be 5
         }
 
+        It 'Get-DBRow -Column' {
+            $properties = Get-DBRow DBTest -Table Cluster -Column ClusterId, ClusterName |
+                Select-Object -First 1 |
+                ForEach-Object PSObject |
+                ForEach-Object Properties
+
+            $properties[0].Name | Should Be ClusterId
+            $properties[1].Name | Should Be ClusterName
+        }
+
         It 'Get-DBRow -FilterEq' {
             @(Get-DBRow DBTest -Table Cluster -FilterEq @{ClusterType='SQL'}).Count | Should Be 3
             @(Get-DBRow DBTest -Table Cluster -FilterEq @{ClusterType='SQL','File'}).Count | Should Be 5
