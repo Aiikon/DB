@@ -270,7 +270,7 @@ Function Get-DBSchema
     End
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
-        Invoke-DBQuery $Connection "SELECT * FROM sys.schemas"
+        Invoke-DBQuery $Connection "SELECT name [Schema], schema_id SchemaId FROM sys.schemas"
     }
 }
 
@@ -318,7 +318,16 @@ Function Get-DBTable
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
         $dbConnection = Connect-DBConnection $Connection
-        $dbConnection.ConnectionObject.GetSchema('Tables')
+        $dbConnection.ConnectionObject.GetSchema('Tables') |
+            ForEach-Object {
+                $temp = [ordered]@{}
+                $temp.Database = $_.TABLE_CATALOG
+                $temp.Schema = $_.TABLE_SCHEMA
+                $temp.Table = $_.TABLE_NAME
+                $temp.TableType = $_.TABLE_TYPE
+                [pscustomobject]$temp
+            } |
+            Sort-Object Database, Schema, Table
     }
 }
 
