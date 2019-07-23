@@ -942,7 +942,21 @@ Function Get-DBColumn
             $filterEq['COLUMN_NAME'] = $Column
         }
 
-        Get-DBRow $Connection -Schema INFORMATION_SCHEMA -Table COLUMNS -FilterEq $filterEq
+        $columnList = Get-DBRow $Connection -Schema INFORMATION_SCHEMA -Table COLUMNS -FilterEq $filterEq
+        foreach ($col in $columnList)
+        {
+            $result = [ordered]@{}
+            $result.Schema = $col.TABLE_SCHEMA
+            $result.Table = $col.TABLE_NAME
+            $result.Column = $col.COLUMN_NAME
+            $result.Type = $col.DATA_TYPE
+            $result.Length = $col.CHARACTER_MAXIMUM_LENGTH
+            if ($result.Length -eq -1) { $result.Length = $null }
+            $result.Position = $col.ORDINAL_POSITION
+            $result.Default = $col.COLUMN_DEFAULT
+            $result.IsNullable = $col.IS_NULLABLE -eq 'YES'
+            [pscustomobject]$result
+        }
     }
 }
 
