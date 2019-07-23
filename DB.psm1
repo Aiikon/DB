@@ -1339,3 +1339,206 @@ Function Define-DBPrimaryKey
         [pscustomobject]$definition
     }
 }
+
+Function New-DBTrigger
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidateSet('Insert', 'Update', 'Delete')] [string] $TriggerFor,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Trigger,
+        [Parameter(Mandatory=$true)] [string] $SQL
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if (-not $Trigger) { $Trigger = "TR_$Table`_$TriggerFor" }
+
+        Invoke-DBQuery $Connection -Mode NonQuery -Query "
+            CREATE TRIGGER [$Schema].[$Trigger] ON [$Schema].[$Table] FOR $TriggerFor
+            AS BEGIN
+            $SQL
+            END
+        " | Out-Null
+    }
+}
+
+Function Remove-DBTrigger
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High', PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidateSet('Insert', 'Update', 'Delete')] [string] $TriggerFor,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Trigger
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if (-not $Trigger) { $Trigger = "TR_$Table`_$TriggerFor" }
+
+        if ($PSCmdlet.ShouldProcess("$Schema.$Trigger", 'Drop Trigger'))
+        {
+            Invoke-DBQuery $Connection "DROP TRIGGER [$Schema].[$Trigger]"
+        }
+    }
+}
+
+Function New-DBAuditTable
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $AuditSchema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $AuditTable,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $AuditOldValue,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $TriggerPrefix
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if (!$AuditTable) { $AuditTable = "${Table}_Audit" }
+        if (!$AuditSchema) { $AuditSchema = $Schema }
+        if (!$TriggerPrefix) { $TriggerPrefix = "TR_${Schema}_${Table}_Audit" }
+
+        $primaryKeyList = Get-DBPrimaryKey $Connection -Schema $Schema -Table $Table -AsStringArray
+        $columnList = Get-DBColumn $Connection -Schema $Schema -Table $Table
+
+        $auditColumnList = $columnList |
+            Where-Object Column -NotIn $primaryKeyList
+
+        New-DBTable $Connection -Schema $AuditSchema -Table $AuditTable -Definition {
+            foreach ($column in $columnList)
+            {
+                $name = $column.Column
+                if ($column.Column -in $primaryKeyList) { Define-DBColumn $name $column.Type -Length $column.Length -Required -IndexName IX_PrimaryKey }
+                elseif ($column.Column -in $AuditOldValue)
+                {
+                    Define-DBColumn "${name}__Updated" bit
+                    Define-DBColumn "${name}__OldValue" $column.Type
+                }
+            }
+
+            Define-DBColumn __Timestamp datetime -Required
+            Define-DBColumn __Username nvarchar -Required
+            Define-DBColumn __Type char 1 -Required
+        }
+
+        New-DBTrigger $Connection -Schema $Schema -Table $Table -TriggerFor Insert -Trigger "${TriggerPrefix}_Insert" -SQL "
+            IF @@ROWCOUNT = 0 RETURN
+            SET NOCOUNT ON
+
+            INSERT INTO [$AuditSchema].[$AuditTable]
+            (
+                $($(foreach ($k in $primaryKeyList) { "[$k]," }) -join '')
+                __Timestamp,
+                __Username,
+                __Type
+            )
+            SELECT
+                $($(foreach ($k in $primaryKeyList) { "I.[$k]," }) -join '')
+                getdate(),
+                suser_sname(),
+                'I'
+            FROM INSERTED I
+            IF @@ERROR <> 0 BEGIN
+                raiserror ('Could not record insert audit in [$AuditSchema].[$AuditTable]; operation will be cancelled.', 16, 1)
+                ROLLBACK TRANSACTION
+            END
+        "
+
+        New-DBTrigger $Connection -Schema $Schema -Table $Table -TriggerFor Update -Trigger "${TriggerPrefix}_Update" -SQL "
+            IF @@ROWCOUNT = 0 RETURN
+            SET NOCOUNT ON
+
+            INSERT INTO [$AuditSchema].[$AuditTable]
+            (
+                $($(foreach ($k in $primaryKeyList) { "[$k]," }) -join '')
+                $($(foreach ($c in $AuditOldValue) { "[${c}__Updated]," }) -join '')
+                $($(foreach ($c in $AuditOldValue) { "[${c}__OldValue]," }) -join '')
+                __Timestamp,
+                __Username,
+                __Type
+            )
+            SELECT
+                $($(foreach ($k in $primaryKeyList) { "I.[$k]," }) -join '')
+                $($(foreach ($c in $AuditOldValue) { "CASE WHEN (isnull(D.[$c], '') <> isnull(I.[$c], '')) THEN 1 ELSE 0 END," }) -join '')
+                $($(foreach ($c in $AuditOldValue) { "D.[$c]," }) -join '')
+                getdate(),
+                suser_sname(),
+                'U'
+            FROM DELETED D INNER JOIN INSERTED I ON $($(foreach ($k in $primaryKeyList) { "D.[$k] = I.[$k]" }) -join ' AND ')
+            WHERE
+                $($(foreach ($c in $AuditOldValue) { "isnull(D.[$c], '') <> isnull(I.[$c], '')" }) -join ' OR ')
+            IF @@ERROR <> 0 BEGIN
+                raiserror ('Could not record update audit in [$AuditSchema].[$AuditTable]; operation will be cancelled.', 16, 1)
+                ROLLBACK TRANSACTION
+            END
+        "
+
+        New-DBTrigger $Connection -Schema $Schema -Table $Table -TriggerFor Delete -Trigger "${TriggerPrefix}_Delete" -SQL "
+            IF @@ROWCOUNT = 0 RETURN
+            SET NOCOUNT ON
+
+            INSERT INTO [$AuditSchema].[$AuditTable]
+            (
+                $($(foreach ($k in $primaryKeyList) { "[$k]," }) -join '')
+                $($(foreach ($c in $AuditOldValue) { "[${c}__OldValue]," }) -join '')
+                __Timestamp,
+                __Username,
+                __Type
+            )
+            SELECT
+                $($(foreach ($k in $primaryKeyList) { "D.[$k]," }) -join '')
+                $($(foreach ($c in $AuditOldValue) { "D.[${c}]," }) -join '')
+                getdate(),
+                suser_sname(),
+                'D'
+            FROM DELETED D
+            IF @@ERROR <> 0 BEGIN
+                raiserror ('Could not record delete audit in [$AuditSchema].[$AuditTable]; operation will be cancelled.', 16, 1)
+                ROLLBACK TRANSACTION
+            END
+        "
+    }
+}
+
+Function Remove-DBAuditTable
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High', PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $AuditSchema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $AuditTable
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if (!$AuditTable) { $AuditTable = "${Table}_Audit" }
+        if (!$AuditSchema) { $AuditSchema = $Schema }
+        if (!$TriggerPrefix) { $TriggerPrefix = "TR_${Schema}_${Table}_Audit" }
+
+        if ($PSCmdlet.ShouldProcess("$AuditSchema.$AuditTable", 'Drop Audit Table and Triggers'))
+        {
+            Remove-DBTrigger $Connection -Schema $Schema -Table $Table -TriggerFor Insert -Trigger "${TriggerPrefix}_Insert" -Confirm:$false
+            Remove-DBTrigger $Connection -Schema $Schema -Table $Table -TriggerFor Update -Trigger "${TriggerPrefix}_Update" -Confirm:$false
+            Remove-DBTrigger $Connection -Schema $Schema -Table $Table -TriggerFor Delete -Trigger "${TriggerPrefix}_Delete" -Confirm:$false
+            Remove-DBTable $Connection -Schema $AuditSchema -Table $AuditTable -Confirm:$false
+        }
+    }
+}

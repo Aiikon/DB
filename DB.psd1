@@ -122,6 +122,10 @@ FunctionsToExport = @(
     'Get-DBPrimaryKey'
     'New-DBPrimaryKey'
     'Define-DBPrimaryKey'
+    'New-DBTrigger'
+    'Remove-DBTrigger'
+    'New-DBAuditTable'
+    'Remove-DBAuditTable'
 )
 
 # Cmdlets to export from this module
