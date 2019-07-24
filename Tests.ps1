@@ -1,6 +1,6 @@
 Import-Module (Get-Module DB).Path -Force -DisableNameChecking
 
-Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf
+Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
 
 Remove-DBTable DBTest -Table Cluster -Confirm:$false
 New-DBTable DBTest -Table Cluster -Definition {
@@ -163,3 +163,6 @@ New-DBTable DBTest -Table IndexTest -Verbose -Definition {
     Define-DBColumn TestAK2 int -UniqueIndexName AK_12
 }
 Remove-DBTable DBTest -Table IndexTest -Confirm:$false -ErrorAction SilentlyContinue
+
+Remove-DBAuditTable DBTest -Table Cluster -AuditValueColumn ClusterType
+New-DBAuditTable DBTest -Table Cluster -AuditValueColumn ClusterType
