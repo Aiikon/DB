@@ -1542,3 +1542,104 @@ Function Remove-DBAuditTable
         }
     }
 }
+
+$Script:ColumnDict = @{}
+
+foreach ($command in (Get-Command -Module DB))
+{
+    if (!$command.Parameters.ContainsKey('Connection')) { continue }
+
+    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Connection' -ScriptBlock {
+        Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
+        $wordRegex = [regex]::Escape($WordToComplete)
+        foreach ($value in $Script:ModuleConfig.Connections.Keys)
+        {
+            if ($value -match $wordRegex)
+            {
+                [System.Management.Automation.CompletionResult]::new($value)
+            }
+        }
+    }
+
+    if (!$command.Parameters.ContainsKey('Schema')) { continue }
+
+    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Schema' -ScriptBlock {
+        Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
+        $connectionName = $FakeBoundParameter['Connection']
+        if (!$connectionName) { return }
+        if (!$Script:ColumnDict.ContainsKey($connectionName))
+        {
+            $Script:ColumnDict[$connectionName] = Get-DBColumn $connectionName
+        }
+        $schemaList = $Script:ColumnDict[$connectionName] | Select-Object -Unique -ExpandProperty Schema
+        $wordRegex = [regex]::Escape($WordToComplete)
+        foreach ($value in $schemaList)
+        {
+            if ($value -match $wordRegex)
+            {
+                [System.Management.Automation.CompletionResult]::new($value)
+            }
+        }
+    }
+
+    if (!$command.Parameters.ContainsKey('Table')) { continue }
+
+    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Table' -ScriptBlock {
+        Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
+        $connectionName = $FakeBoundParameter['Connection']
+        if (!$connectionName) { return }
+        if (!$Script:ColumnDict.ContainsKey($connectionName))
+        {
+            $Script:ColumnDict[$connectionName] = Get-DBColumn $connectionName
+        }
+        $schemaName = $FakeBoundParameter['Schema']
+        if (!$schemaName) { $schemaName = $Script:ModuleConfig.Connections[$connectionName].DefaultSchema }
+
+        $tableList = $Script:ColumnDict[$connectionName] |
+            Where-Object Schema -eq $schemaName |
+            Select-Object -Unique -ExpandProperty Table
+
+        $wordRegex = [regex]::Escape($WordToComplete)
+        foreach ($value in $tableList)
+        {
+            if ($value -match $wordRegex)
+            {
+                [System.Management.Automation.CompletionResult]::new($value)
+            }
+        }
+    }
+
+    if (!$command.Parameters.ContainsKey('Column')) { continue }
+
+    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Column' -ScriptBlock {
+        Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
+        $connectionName = $FakeBoundParameter['Connection']
+        if (!$connectionName) { return }
+        if (!$Script:ColumnDict.ContainsKey($connectionName))
+        {
+            $Script:ColumnDict[$connectionName] = Get-DBColumn $connectionName
+        }
+        $schemaName = $FakeBoundParameter['Schema']
+        if (!$schemaName) { $schemaName = $Script:ModuleConfig.Connections[$connectionName].DefaultSchema }
+
+        $tableName = $FakeBoundParameter['Table']
+        if (!$tableName) { return }
+
+        $columnList = $Script:ColumnDict[$connectionName] |
+            Where-Object Schema -eq $schemaName |
+            Where-Object Table -eq $tableName |
+            Select-Object -Unique -ExpandProperty Column
+
+        $Global:command = $CommandAst
+        $Global:word = $WordToComplete
+            
+        $wordRegex = [regex]::Escape($WordToComplete)
+        foreach ($value in $columnList)
+        {
+            if ($value -match $wordRegex -and $value -notin $FakeBoundParameter['Column'])
+            {
+                [System.Management.Automation.CompletionResult]::new($value)
+            }
+        }
+    }
+}
