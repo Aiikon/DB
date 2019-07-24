@@ -942,7 +942,13 @@ Function Get-DBColumn
             $filterEq['COLUMN_NAME'] = $Column
         }
 
-        $columnList = Get-DBRow $Connection -Schema INFORMATION_SCHEMA -Table COLUMNS -FilterEq $filterEq
+        $columnList = Invoke-DBQuery $Connection "
+            SELECT c.*, k.CONSTRAINT_NAME PKEY_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS c
+                LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE k ON c.TABLE_CATALOG = k.TABLE_CATALOG
+                    AND c.TABLE_SCHEMA = k.TABLE_SCHEMA AND c.TABLE_NAME = k.TABLE_NAME
+                    AND c.COLUMN_NAME = k.COLUMN_NAME
+        "
         foreach ($col in $columnList)
         {
             $result = [ordered]@{}
@@ -955,6 +961,7 @@ Function Get-DBColumn
             $result.Position = $col.ORDINAL_POSITION
             $result.Default = $col.COLUMN_DEFAULT
             $result.IsNullable = $col.IS_NULLABLE -eq 'YES'
+            $result.IsPrimaryKey = !!$col.PKEY_NAME
             [pscustomobject]$result
         }
     }
