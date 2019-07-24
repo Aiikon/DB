@@ -1629,9 +1629,6 @@ foreach ($command in (Get-Command -Module DB))
             Where-Object Schema -eq $schemaName |
             Where-Object Table -eq $tableName |
             Select-Object -Unique -ExpandProperty Column
-
-        $Global:command = $CommandAst
-        $Global:word = $WordToComplete
             
         $wordRegex = [regex]::Escape($WordToComplete)
         foreach ($value in $columnList)
