@@ -489,9 +489,11 @@ Function Remove-DBView
 Function Get-DBWhereSql
 {
     [CmdletBinding()]
-    Param()
+    Param($TablePrefix, $ParameterDict = @{})
     End
     {
+        $T = ''
+        if ($TablePrefix) { $T = "$TablePrefix." }
         $opDict = [ordered]@{}
         $opDict.Eq = '='
         $opDict.Ne = '!='
@@ -506,8 +508,6 @@ Function Get-DBWhereSql
         $otherDict.Null = "IS NULL"
         $otherDict.NotNull = "IS NOT NULL"
 
-        $parameterDict = @{}
-
         $whereList = New-Object System.Collections.Generic.List[string]
         
         $p = 0
@@ -518,6 +518,7 @@ Function Get-DBWhereSql
             $op2 = $opDict[$op]
             foreach ($col in $filterDict.Keys)
             {
+                if ($col -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Column $col is an invalid column name." }
                 $value = $filterDict.$col
                 if ($value -eq $null)
                 {
@@ -536,11 +537,11 @@ Function Get-DBWhereSql
                         }
                         if ($op -eq 'Eq')
                         {
-                            $whereList.Add("[$col] IN ($($temp -join ','))")
+                            $whereList.Add("$T[$col] IN ($($temp -join ','))")
                         }
                         else
                         {
-                            $whereList.Add("[$col] NOT IN ($($temp -join ','))")
+                            $whereList.Add("$T[$col] NOT IN ($($temp -join ','))")
                         }
                     }
                     elseif ($op -in 'Like', 'NotLike')
@@ -549,7 +550,7 @@ Function Get-DBWhereSql
                         if ($op -eq 'NotLike') { $join = ' AND ' }
                         $temp = foreach ($newValue in $value)
                         {
-                            "[$col] $op2 @P$p"
+                            "$T[$col] $op2 @P$p"
                             $parameterDict["P$p"] = $newValue
                             $p += 1
                         }
@@ -563,7 +564,7 @@ Function Get-DBWhereSql
                 else
                 {
                     $parameterDict["P$p"] = $value
-                    $whereList.Add("[$col] $op2 @P$p")
+                    $whereList.Add("$T[$col] $op2 @P$p")
                 }
 
                 $p += 1
@@ -577,7 +578,8 @@ Function Get-DBWhereSql
             $op2 = $otherDict.$op
             foreach ($col in $otherCol)
             {
-                $whereList.Add("[$col] $op2")
+                if ($col -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Column $col is an invalid column name." }
+                $whereList.Add("$T[$col] $op2")
             }
         }
 
@@ -593,7 +595,7 @@ Function Get-DBWhereSql
             {
                 $temp2 = foreach ($property in $propertyNames)
                 {
-                    "[$property] = @P$p"
+                    "$T[$property] = @P$p"
                     $parameterDict["P$p"] = $object.$property
                     $p += 1
                 }
@@ -615,16 +617,46 @@ Function Get-DBWhereSql
     }
 }
 
+Function Define-DBJoin
+{
+    Param
+    (
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftSchema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftTable,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftKey,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $RightSchema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $RightTable,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $RightKey,
+        [Parameter()] [ValidateSet('Left', 'Inner', 'Right', 'FullOuter')] [string] $Type = 'Left',
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column
+    )
+    End
+    {
+        $definition = [ordered]@{}
+        $definition.DefinitionType = 'Join'
+        $definition.LeftSchema = $LeftSchema
+        $definition.LeftTable = $LeftTable
+        $definition.LeftKey = $LeftKey
+        $definition.RightSchema = $RightSchema
+        $definition.RightTable = $RightTable
+        $definition.RightKey = $RightKey
+        $definition.Type = $Type
+        $definition.Column = $Column
+        [pscustomobject]$definition
+    }
+}
+
 Function Get-DBRow
 {
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $Column,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter()] [switch] $Unique,
         [Parameter()] [switch] $Count,
+        [Parameter()] [scriptblock] $Joins,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
@@ -642,16 +674,57 @@ Function Get-DBRow
         # Don't put a trap {} here or 'Select-Object -First' will throw a pipeline has been stopped exception.
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
-        $whereSql, $parameters = Get-DBWhereSql
+        $whereSql, $parameters = Get-DBWhereSql -TablePrefix T1
 
         $columnList = @()
         $columnSql = '*'
-        if ($Column)
+        $joinSql = ''
+
+        if ($Column -or $Joins)
         {
+            if (!$Column) { $Column = '*' }
             foreach ($c in $Column)
             {
-                $columnList += "[$c]"
+                $columnList += "T1.[$c]"
             }
+        }
+
+        if ($Joins)
+        {
+            $joinTableDict = @{"[$Schema].[$Table]"='T1'}
+            $t = 2
+            $joinSqlList = @()
+            $joinDefList = & $Joins
+            foreach ($joinDef in $joinDefList)
+            {
+                $leftSchema = $joinDef.LeftSchema
+                $leftTable = $joinDef.LeftTable
+                $leftKey = $joinDef.LeftKey
+                $rightSchema = $joinDef.RightSchema
+                $rightTable = $joinDef.RightTable
+                $rightKey = $joinDef.RightKey
+                $joinColumn = $joinDef.Column
+                if (!$leftSchema) { $leftSchema = $Schema }
+                if (!$rightSchema) { $rightSchema = $Schema }
+                if (!$leftTable) { $leftTable = $Table }
+                if (!$rightKey) { $rightKey = $leftKey }
+
+                $leftTb = $joinTableDict["[$leftSchema].[$leftTable]"]
+                $rightTb = "T$t"
+                $joinTableDict["[$rightSchema].[$rightTable]"] = $rightTb
+                $type = $joinDef.Type.ToUpper().Replace('FULLOUTER', 'FULL OUTER')
+
+                $onList = for ($i = 0; $i -lt $leftKey.Count; $i++)
+                {
+                    "$leftTb.[$(@($leftKey)[$i])] = $rightTb.[$(@($rightKey)[$i])]"
+                }
+                $joinSqlList += " $type JOIN [$rightSchema].[$rightTable] $rightTb ON $($onList -join ' AND ')"
+
+                foreach ($c in $joinColumn) { $columnList += "$rightTb.[$c]" }
+
+                $t += 1
+            }
+            $joinSql = $joinSqlList -join ''
         }
 
         if ($Count)
@@ -663,7 +736,7 @@ Function Get-DBRow
 
         if ($columnList.Count)
         {
-            $columnSql = $columnList -join ','
+            $columnSql = $columnList -join ',' -replace "\[\*\]", "*"
         }
 
         $groupSql = ''
@@ -678,7 +751,7 @@ Function Get-DBRow
             $groupSql = "GROUP BY $($groupList -join ',')"
         }
 
-        $query = "SELECT $columnSql FROM [$Schema].[$Table]$whereSql$groupSql"
+        $query = "SELECT $columnSql FROM [$Schema].[$Table] T1$joinSql$whereSql$groupSql"
 
         Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters
     }
