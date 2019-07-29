@@ -818,7 +818,10 @@ Function Add-DBRow
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
         $dataTable = New-Object System.Data.DataTable
-        $tableAdapter = New-Object System.Data.SqlClient.SqlDataAdapter("SELECT * FROM [$Schema].[$Table]", $dbConnection.ConnectionObject)
+        $selectCommand = $dbConnection.ConnectionObject.CreateCommand()
+        $selectCommand.CommandText = "SELECT * FROM [$Schema].[$Table]"
+        if ($dbConnection.Transaction) { $selectCommand.Transaction = $dbConnection.Transaction }
+        $tableAdapter = New-Object System.Data.SqlClient.SqlDataAdapter $selectCommand
         $commandBuilder = New-Object System.Data.SqlClient.SqlCommandBuilder $tableAdapter
         $tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
 
