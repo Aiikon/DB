@@ -659,10 +659,10 @@ Function Define-DBJoin
     (
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftSchema,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftTable,
-        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftKey,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $LeftKey,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $RightSchema,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $RightTable,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $RightKey,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $RightKey,
         [Parameter()] [ValidateSet('Left', 'Inner', 'Right', 'FullOuter')] [string] $Type = 'Left',
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column
     )
@@ -713,6 +713,7 @@ Function Get-DBRow
         $whereSql, $parameters = Get-DBWhereSql -TablePrefix T1
 
         $columnList = @()
+        $columnList2 = @()
         $columnSql = '*'
         $joinSql = ''
 
@@ -743,7 +744,9 @@ Function Get-DBRow
                 if (!$leftSchema) { $leftSchema = $Schema }
                 if (!$rightSchema) { $rightSchema = $Schema }
                 if (!$leftTable) { $leftTable = $Table }
+                if (!$leftKey) { $leftKey = $rightKey }
                 if (!$rightKey) { $rightKey = $leftKey }
+                if (!$leftKey -and !$rightKey) { throw "LeftKey, RightKey or both must be specified in Define-DBJoin." }
 
                 $leftTb = $joinTableDict["[$leftSchema].[$leftTable]"]
                 $rightTb = "T$t"
@@ -767,12 +770,22 @@ Function Get-DBRow
         {
             trap { $PSCmdlet.ThrowTerminatingError($_) }
             if (!$Unique -or !$Column) { throw "-Column and -Unique must be specified if -Count is specified." }
-            $columnList += "COUNT(*) [Count]"
+            $columnList2 += "COUNT(*) [Count]"
+        }
+
+        if ($Sum)
+        {
+            trap { $PSCmdlet.ThrowTerminatingError($_) }
+            if (!$Unique -or !$Column) { throw "-Column and -Unique must be specified if -Sum is specified." }
+            foreach ($c in $Sum)
+            {
+                $columnList2 += "SUM(T1.[$c]) [$c]"
+            }
         }
 
         if ($columnList.Count)
         {
-            $columnSql = $columnList -join ',' -replace "\[\*\]", "*"
+            $columnSql = @(@($columnList) + @($columnList2)) -join ',' -replace "\[\*\]", "*"
         }
 
         $groupSql = ''
@@ -780,14 +793,10 @@ Function Get-DBRow
         {
             trap { $PSCmdlet.ThrowTerminatingError($_) }
             if (!$Column) { throw "-Column must be specified if -Unique is specified." }
-            $groupList = foreach ($c in $Column)
-            {
-                "[$c]"
-            }
-            $groupSql = "GROUP BY $($groupList -join ',')"
+            $groupSql = "GROUP BY $($columnList -join ',')"
         }
 
-        $query = "SELECT $columnSql FROM [$Schema].[$Table] T1$joinSql$whereSql$groupSql"
+        $query = "SELECT $columnSql FROM [$Schema].[$Table] T1 $joinSql $whereSql $groupSql"
 
         Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters
     }
