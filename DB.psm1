@@ -1535,7 +1535,7 @@ Function New-DBAuditTable
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $AuditSchema,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $AuditTable,
-        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $AuditOldValue,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $AuditBefore,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $TriggerPrefix
     )
     End
@@ -1549,18 +1549,18 @@ Function New-DBAuditTable
         $primaryKeyList = Get-DBPrimaryKey $Connection -Schema $Schema -Table $Table -AsStringArray
         $columnList = Get-DBColumn $Connection -Schema $Schema -Table $Table
 
-        $auditColumnList = $columnList |
-            Where-Object Column -NotIn $primaryKeyList
+        if (!$AuditBefore) { $AuditBefore  = @($columnList.Column) }
+        $AuditBefore = @($(foreach ($c in $AuditBefore) { if ($c -notin $primaryKeyList) { $c } }))
 
         New-DBTable $Connection -Schema $AuditSchema -Table $AuditTable -Definition {
             foreach ($column in $columnList)
             {
                 $name = $column.Column
                 if ($column.Column -in $primaryKeyList) { Define-DBColumn $name $column.Type -Length $column.Length -Required -IndexName IX_PrimaryKey }
-                elseif ($column.Column -in $AuditOldValue)
+                elseif ($column.Column -in $AuditBefore)
                 {
                     Define-DBColumn "${name}__Updated" bit
-                    Define-DBColumn "${name}__OldValue" $column.Type
+                    Define-DBColumn "${name}__Before" $column.Type
                 }
             }
 
@@ -1568,6 +1568,8 @@ Function New-DBAuditTable
             Define-DBColumn __Username nvarchar -Required
             Define-DBColumn __Type char 1 -Required
         }
+
+        New-DBIndex $Connection -Schema $AuditSchema -Table $AuditTable -Column $primaryKeyList -Index IX_PrimaryKey
 
         New-DBTrigger $Connection -Schema $Schema -Table $Table -TriggerFor Insert -Trigger "${TriggerPrefix}_Insert" -SQL "
             IF @@ROWCOUNT = 0 RETURN
@@ -1599,22 +1601,22 @@ Function New-DBAuditTable
             INSERT INTO [$AuditSchema].[$AuditTable]
             (
                 $($(foreach ($k in $primaryKeyList) { "[$k]," }) -join '')
-                $($(foreach ($c in $AuditOldValue) { "[${c}__Updated]," }) -join '')
-                $($(foreach ($c in $AuditOldValue) { "[${c}__OldValue]," }) -join '')
+                $($(foreach ($c in $AuditBefore) { "[${c}__Updated]," }) -join '')
+                $($(foreach ($c in $AuditBefore) { "[${c}__Before]," }) -join '')
                 __Timestamp,
                 __Username,
                 __Type
             )
             SELECT
                 $($(foreach ($k in $primaryKeyList) { "I.[$k]," }) -join '')
-                $($(foreach ($c in $AuditOldValue) { "CASE WHEN (isnull(D.[$c], '') <> isnull(I.[$c], '')) THEN 1 ELSE 0 END," }) -join '')
-                $($(foreach ($c in $AuditOldValue) { "D.[$c]," }) -join '')
+                $($(foreach ($c in $AuditBefore) { "CASE WHEN (isnull(D.[$c], '') <> isnull(I.[$c], '')) THEN 1 ELSE 0 END," }) -join '')
+                $($(foreach ($c in $AuditBefore) { "D.[$c]," }) -join '')
                 getdate(),
                 suser_sname(),
                 'U'
             FROM DELETED D INNER JOIN INSERTED I ON $($(foreach ($k in $primaryKeyList) { "D.[$k] = I.[$k]" }) -join ' AND ')
-            WHERE
-                $($(foreach ($c in $AuditOldValue) { "isnull(D.[$c], '') <> isnull(I.[$c], '')" }) -join ' OR ')
+            $(if($AuditBefore) { 'WHERE' })
+                $($(foreach ($c in $AuditBefore) { "isnull(D.[$c], '') <> isnull(I.[$c], '')" }) -join ' OR ')
             IF @@ERROR <> 0 BEGIN
                 raiserror ('Could not record update audit in [$AuditSchema].[$AuditTable]; operation will be cancelled.', 16, 1)
                 ROLLBACK TRANSACTION
@@ -1628,14 +1630,14 @@ Function New-DBAuditTable
             INSERT INTO [$AuditSchema].[$AuditTable]
             (
                 $($(foreach ($k in $primaryKeyList) { "[$k]," }) -join '')
-                $($(foreach ($c in $AuditOldValue) { "[${c}__OldValue]," }) -join '')
+                $($(foreach ($c in $AuditBefore) { "[${c}__Before]," }) -join '')
                 __Timestamp,
                 __Username,
                 __Type
             )
             SELECT
                 $($(foreach ($k in $primaryKeyList) { "D.[$k]," }) -join '')
-                $($(foreach ($c in $AuditOldValue) { "D.[${c}]," }) -join '')
+                $($(foreach ($c in $AuditBefore) { "D.[${c}]," }) -join '')
                 getdate(),
                 suser_sname(),
                 'D'
