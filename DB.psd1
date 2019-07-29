@@ -88,6 +88,7 @@ NestedModules = @('DB.psm1')
 # Functions to export from this module
 FunctionsToExport = @(
     'Initialize-DBConnectionToLocalDB'
+    'Initialize-DBConnectionToSqlDB'
     'Use-DBTransaction'
     'Complete-DBTransaction'
     'Undo-DBTransaction'
