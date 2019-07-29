@@ -1688,7 +1688,7 @@ foreach ($command in (Get-Command -Module DB))
     Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Connection' -ScriptBlock {
         Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
         $wordRegex = [regex]::Escape($WordToComplete)
-        foreach ($value in $Script:ModuleConfig.Connections.Keys)
+        foreach ($value in $Script:ModuleConfig.Connections.Keys | Sort-Object)
         {
             if ($value -match $wordRegex)
             {
@@ -1707,7 +1707,9 @@ foreach ($command in (Get-Command -Module DB))
         {
             $Script:ColumnDict[$connectionName] = Get-DBColumn $connectionName
         }
-        $schemaList = $Script:ColumnDict[$connectionName] | Select-Object -Unique -ExpandProperty Schema
+        $schemaList = $Script:ColumnDict[$connectionName] |
+            Select-Object -Unique -ExpandProperty Schema |
+            Sort-Object
         $wordRegex = [regex]::Escape($WordToComplete)
         foreach ($value in $schemaList)
         {
@@ -1733,7 +1735,8 @@ foreach ($command in (Get-Command -Module DB))
 
         $tableList = $Script:ColumnDict[$connectionName] |
             Where-Object Schema -eq $schemaName |
-            Select-Object -Unique -ExpandProperty Table
+            Select-Object -Unique -ExpandProperty Table |
+            Sort-Object
 
         $wordRegex = [regex]::Escape($WordToComplete)
         foreach ($value in $tableList)
@@ -1764,15 +1767,13 @@ foreach ($command in (Get-Command -Module DB))
         $columnList = $Script:ColumnDict[$connectionName] |
             Where-Object Schema -eq $schemaName |
             Where-Object Table -eq $tableName |
-            Select-Object -Unique -ExpandProperty Column
+            Select-Object -Unique -ExpandProperty Column |
+            Sort-Object
             
         $wordRegex = [regex]::Escape($WordToComplete)
         foreach ($value in $columnList)
         {
-            if ($value -match $wordRegex -and $value -notin $FakeBoundParameter['Column'])
-            {
-                [System.Management.Automation.CompletionResult]::new($value)
-            }
+            [System.Management.Automation.CompletionResult]::new($value)
         }
     }
 }
