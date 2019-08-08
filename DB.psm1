@@ -692,6 +692,9 @@ Function Get-DBRow
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter()] [switch] $Unique,
         [Parameter()] [switch] $Count,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Sum,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Min,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Max,
         [Parameter()] [scriptblock] $Joins,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
@@ -766,26 +769,10 @@ Function Get-DBRow
             $joinSql = $joinSqlList -join ''
         }
 
-        if ($Count)
+        if (($Count -or $Sum -or $Min -or $Max) -and (!$Unique -or !$Column))
         {
             trap { $PSCmdlet.ThrowTerminatingError($_) }
-            if (!$Unique -or !$Column) { throw "-Column and -Unique must be specified if -Count is specified." }
-            $columnList2 += "COUNT(*) [Count]"
-        }
-
-        if ($Sum)
-        {
-            trap { $PSCmdlet.ThrowTerminatingError($_) }
-            if (!$Unique -or !$Column) { throw "-Column and -Unique must be specified if -Sum is specified." }
-            foreach ($c in $Sum)
-            {
-                $columnList2 += "SUM(T1.[$c]) [$c]"
-            }
-        }
-
-        if ($columnList.Count)
-        {
-            $columnSql = @(@($columnList) + @($columnList2)) -join ',' -replace "\[\*\]", "*"
+            throw "-Column and -Unique must be specified if -Count, -Sum, -Min or -Max are specified."
         }
 
         $groupSql = ''
@@ -794,6 +781,30 @@ Function Get-DBRow
             trap { $PSCmdlet.ThrowTerminatingError($_) }
             if (!$Column) { throw "-Column must be specified if -Unique is specified." }
             $groupSql = "GROUP BY $($columnList -join ',')"
+            if ($Count)
+            {
+                $columnList2 += "COUNT(*) [Count]"
+            }
+            $mathList = foreach ($math in 'Sum', 'Min', 'Max')
+            {
+                if ($PSBoundParameters[$math])
+                {
+                    foreach ($c in $PSBoundParameters[$math]) { [pscustomobject]@{Math=$math;Column=$c } }
+                }
+            }
+            foreach ($mathGroup in $mathList | Group-Object Column)
+            {
+                foreach ($item in $mathGroup.Group)
+                {
+                    if ($mathGroup.Count -eq 1) { $columnList2 += "$($item.Math)($($item.Column)) [$($item.Column)]" }
+                    else { $columnList2 += "$($item.Math)($($item.Column)) [$($item.Column)$($item.Math)]" }
+                }
+            }
+        }
+
+        if ($columnList.Count)
+        {
+            $columnSql = @(@($columnList) + @($columnList2)) -join ',' -replace "\[\*\]", "*"
         }
 
         $query = "SELECT $columnSql FROM [$Schema].[$Table] T1 $joinSql $whereSql $groupSql"

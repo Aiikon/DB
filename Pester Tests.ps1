@@ -186,6 +186,21 @@ Describe 'DB Module' {
             $rowList[0].ClusterName | Should Be SQL001
             $rowList[0].ClusterType | Should Be SQL
         }
+
+        It 'Get-DBRow -Sum' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterType -Unique -Sum ClusterId | Sort-Object ClusterType
+            $data | ? ClusterType -eq File | ForEach-Object ClusterId | Should Be 7
+            $data | ? ClusterType -eq SQL | ForEach-Object ClusterId | Should Be 9
+        }
+
+        It 'Get-DBRow -Min -Max' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterType -Unique -Min ClusterId -Max ClusterId | Sort-Object ClusterType
+            $data | ? ClusterType -eq File | ForEach-Object ClusterIdMin | Should Be 3
+            $data | ? ClusterType -eq File | ForEach-Object ClusterIdMax | Should Be 4
+            $data | ? ClusterType -eq SQL | ForEach-Object ClusterIdMin | Should Be 1
+            $data | ? ClusterType -eq SQL | ForEach-Object ClusterIdMax | Should Be 6
+        }
+
     }
 
 
