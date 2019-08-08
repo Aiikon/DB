@@ -755,6 +755,7 @@ Function Get-DBRow
                 if (!$leftKey -and !$rightKey) { throw "LeftKey, RightKey or both must be specified in Define-DBJoin." }
 
                 $leftTb = $joinTableDict["[$leftSchema].[$leftTable]"]
+                if (!$leftTb) { throw "[$leftSchema].[$leftTable] isn't an available table for joining on the left." }
                 $rightTb = "T$t"
                 $joinTableDict["[$rightSchema].[$rightTable]"] = $rightTb
                 $type = $joinDef.Type.ToUpper().Replace('FULLOUTER', 'FULL OUTER')
