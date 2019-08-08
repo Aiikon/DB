@@ -201,6 +201,28 @@ Describe 'DB Module' {
             $data | ? ClusterType -eq SQL | ForEach-Object ClusterIdMax | Should Be 6
         }
 
+        It 'Get-DBRow -OrderBy' {
+            $data = Get-DBRow DBTest -Table Cluster -OrderBy ClusterName
+            $data[0].ClusterName | Should Be CAFile
+            $data[-1].ClusterName | Should Be TXFile
+        }
+
+        It 'Get-DBRow -Join' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType
+            }
+
+            $data[0].ClusterName | Should Be SQL001
+            $data[0].ClusterType | Should Be SQL
+        }
+
+        It 'Get-DBRow -Unique -Count -Min -Max -OrderBy -Joins (No Exception Only)' {
+            # Must make sure it doesn't throw an exception
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterType, ClusterName -Unique -Count -Min ClusterId -Max ClusterId -Sum ClusterId -OrderBy ClusterName -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId
+            }
+            $data[0].ClusterName | Should Match ".+"
+        }
     }
 
 
