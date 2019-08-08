@@ -799,8 +799,8 @@ Function Get-DBRow
             {
                 foreach ($item in $mathGroup.Group)
                 {
-                    if ($mathGroup.Count -eq 1) { $columnList2 += "$($item.Math)($($item.Column)) [$($item.Column)]" }
-                    else { $columnList2 += "$($item.Math)($($item.Column)) [$($item.Column)$($item.Math)]" }
+                    if ($mathGroup.Count -eq 1) { $columnList2 += "$($item.Math)(T1.$($item.Column)) [$($item.Column)]" }
+                    else { $columnList2 += "$($item.Math)(T1.$($item.Column)) [$($item.Column)$($item.Math)]" }
                 }
             }
         }
