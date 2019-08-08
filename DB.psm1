@@ -522,10 +522,14 @@ Function Remove-DBView
     }
 }
 
+$Script:FilterList = @(
+    'FilterEq', 'FilterNe', 'FilterGt', 'FilterGe', 'FilterLt', 'FilterLe'
+    'FilterLike', 'FilterNotLike', 'FilterNull', 'FilterNotNull', 'FilterExists'
+)
 Function Get-DBWhereSql
 {
     [CmdletBinding()]
-    Param($TablePrefix, $ParameterDict = @{})
+    Param($TablePrefix, $ParameterDict = @{}, $ExistingSql)
     End
     {
         $T = ''
@@ -546,7 +550,7 @@ Function Get-DBWhereSql
 
         $whereList = New-Object System.Collections.Generic.List[string]
         
-        $p = 0
+        $p = $ParameterDict.Keys.Count
         foreach ($op in $opDict.Keys)
         {
             $filterDict = $PSCmdlet.SessionState.PSVariable.GetValue("Filter$op")
@@ -643,7 +647,18 @@ Function Get-DBWhereSql
 
         if ($whereList.Count)
         {
-            " WHERE $($whereList -join ' AND ')"
+            if ($ExistingSql)
+            {
+                "$ExistingSql AND $($whereList -join ' AND ')"
+            }
+            else
+            {
+                " WHERE $($whereList -join ' AND ')"
+            }
+        }
+        elseif ($ExistingSql)
+        {
+            $ExistingSql
         }
         else
         {
@@ -665,7 +680,18 @@ Function Define-DBJoin
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $RightTable,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $RightKey,
         [Parameter()] [ValidateSet('Left', 'Inner', 'Right', 'FullOuter')] [string] $Type = 'Left',
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column,
+        [Parameter()] [hashtable] $FilterEq ,
+        [Parameter()] [hashtable] $FilterNe,
+        [Parameter()] [hashtable] $FilterGt,
+        [Parameter()] [hashtable] $FilterGe,
+        [Parameter()] [hashtable] $FilterLt,
+        [Parameter()] [hashtable] $FilterLe,
+        [Parameter()] [hashtable] $FilterLike,
+        [Parameter()] [hashtable] $FilterNotLike,
+        [Parameter()] [string[]] $FilterNull,
+        [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
     )
     End
     {
@@ -679,6 +705,10 @@ Function Define-DBJoin
         $definition.RightKey = $RightKey
         $definition.Type = $Type
         $definition.Column = $Column
+        foreach ($filter in $Script:FilterList)
+        {
+            $definition.$filter = $PSBoundParameters[$filter]
+        }
         [pscustomobject]$definition
     }
 }
@@ -767,6 +797,13 @@ Function Get-DBRow
                 $joinSqlList += " $type JOIN [$rightSchema].[$rightTable] $rightTb ON $($onList -join ' AND ')"
 
                 foreach ($c in $joinColumn) { $columnList += "$rightTb.[$c]" }
+
+                foreach ($filter in $Script:FilterList)
+                {
+                    Remove-Variable $filter -ErrorAction Ignore
+                    if ($joinDef.$filter) { Set-Variable -Name $filter -Value $joinDef.$filter }
+                }
+                $whereSql, $parameters = Get-DBWhereSql -TablePrefix $rightTb -ParameterDict $parameters -ExistingSql $whereSql
 
                 $t += 1
             }

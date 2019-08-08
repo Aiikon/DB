@@ -216,6 +216,15 @@ Describe 'DB Module' {
             $data[0].ClusterType | Should Be SQL
         }
 
+        It 'Get-DBRow -Join with -FilterLike' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -FilterLike @{ClusterName='SQL%'} -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -FilterGe @{ClusterId=4}
+            }
+
+            $data | Measure-Object | ForEach-Object Count | Should Be 1
+            $data[0].ClusterName | Should Be SQL003
+        }
+
         It 'Get-DBRow -Unique -Count -Min -Max -OrderBy -Joins (No Exception Only)' {
             # Must make sure it doesn't throw an exception
             $data = Get-DBRow DBTest -Table Cluster -Column ClusterType, ClusterName -Unique -Count -Min ClusterId -Max ClusterId -Sum ClusterId -OrderBy ClusterName -Joins {
