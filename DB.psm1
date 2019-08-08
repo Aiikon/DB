@@ -655,6 +655,7 @@ Function Get-DBWhereSql
 
 Function Define-DBJoin
 {
+    [CmdletBinding(PositionalBinding=$false)]
     Param
     (
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftSchema,
@@ -684,6 +685,7 @@ Function Define-DBJoin
 
 Function Get-DBRow
 {
+    [CmdletBinding(PositionalBinding=$false)]
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
