@@ -691,6 +691,7 @@ Function Get-DBRow
         [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $OrderBy,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter()] [switch] $Unique,
         [Parameter()] [switch] $Count,
@@ -782,7 +783,7 @@ Function Get-DBRow
         {
             trap { $PSCmdlet.ThrowTerminatingError($_) }
             if (!$Column) { throw "-Column must be specified if -Unique is specified." }
-            $groupSql = "GROUP BY $($columnList -join ',')"
+            $groupSql = " GROUP BY $($columnList -join ',')"
             if ($Count)
             {
                 $columnList2 += "COUNT(*) [Count]"
@@ -803,13 +804,19 @@ Function Get-DBRow
                 }
             }
         }
+        
+        $orderSql = ''
+        if ($OrderBy)
+        {
+            $orderSql = " ORDER BY $($(foreach ($c in $OrderBy) { "T1.[$c]" }) -join ',')"
+        }
 
         if ($columnList.Count)
         {
             $columnSql = @(@($columnList) + @($columnList2)) -join ',' -replace "\[\*\]", "*"
         }
 
-        $query = "SELECT $columnSql FROM [$Schema].[$Table] T1 $joinSql $whereSql $groupSql"
+        $query = "SELECT $columnSql FROM [$Schema].[$Table] T1 $joinSql$whereSql$groupSql$orderSql"
 
         Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters
     }
