@@ -225,6 +225,31 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Table Columns' {
+        try { Remove-DBTable DBTest -Table ColumnTest -Confirm:$false -ErrorAction Stop } catch { }
+        New-DBTable DBTest -Table ColumnTest -Definition {
+            Define-DBColumn Key1 int -Required -PrimaryKey
+            Define-DBColumn Key2 bigint -Required -PrimaryKey
+            Define-DBColumn Value1 nvarchar
+        }
+
+        It 'Gets Columns' {
+            $column = Get-DBColumn DBTest -Table ColumnTest
+            $column | Measure-Object | ForEach-Object Count | Should Be 3
+            $column[0].Column | Should Be Key1
+            $column[1].Column | Should Be Key2
+            $column[2].Column | Should Be Value1
+
+            $column[0].IsPrimaryKey | Should Be $true
+            $column[1].IsPrimaryKey | Should Be $true
+            $column[2].IsPrimaryKey | Should Be $false
+
+            $column[0].IsNullable | Should Be $false
+            $column[1].IsNullable | Should Be $false
+            $column[2].IsNullable | Should Be $true
+        }
+    }
+
 
 }
 

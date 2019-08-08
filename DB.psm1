@@ -1090,7 +1090,7 @@ Function Get-DBColumn
                 LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE k ON c.TABLE_CATALOG = k.TABLE_CATALOG
                     AND c.TABLE_SCHEMA = k.TABLE_SCHEMA AND c.TABLE_NAME = k.TABLE_NAME
                     AND c.COLUMN_NAME = k.COLUMN_NAME
-            PRDER BY c.TABLE_CATALOG, c.TABLE_SCHEMA, c.TABLE_NAME, c.ORDINAL_POSITION
+            ORDER BY c.TABLE_CATALOG, c.TABLE_SCHEMA, c.TABLE_NAME, c.ORDINAL_POSITION
         "
 
         if ($PSBoundParameters['Schema'] -or $Table) { $columnList = $columnList | Where-Object TABLE_SCHEMA -eq $Schema }
