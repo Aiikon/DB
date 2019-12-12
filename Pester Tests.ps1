@@ -1,4 +1,4 @@
-Import-Module (Get-Module DB).Path -Force -DisableNameChecking
+Import-Module $PSScriptRoot -Force -DisableNameChecking
 
 Describe 'DB Module' {
     Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
