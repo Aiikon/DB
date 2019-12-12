@@ -1594,6 +1594,7 @@ Function New-DBAuditTable
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $AuditSchema,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $AuditTable,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $AuditBefore,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [switch] $IncludeAfter,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $TriggerPrefix
     )
     End
@@ -1609,16 +1610,19 @@ Function New-DBAuditTable
 
         if (!$AuditBefore) { $AuditBefore  = @($columnList.Column) }
         $AuditBefore = @($(foreach ($c in $AuditBefore) { if ($c -notin $primaryKeyList) { $c } }))
+        $AuditAfter = @()
+        if ($IncludeAfter) { $AuditAfter = $AuditBefore } # Simplifies foreach loops
 
-        New-DBTable $Connection -Schema $AuditSchema -Table $AuditTable -Definition {
+        New-DBTable $Connection -Schema $AuditSchema -Table $AuditTable -WarningAction SilentlyContinue -Definition {
             foreach ($column in $columnList)
             {
                 $name = $column.Column
-                if ($column.Column -in $primaryKeyList) { Define-DBColumn $name $column.Type -Length $column.Length -Required -IndexName IX_PrimaryKey }
+                if ($column.Column -in $primaryKeyList) { Define-DBColumn $name $column.Type -Length $column.Length -Required }
                 elseif ($column.Column -in $AuditBefore)
                 {
                     Define-DBColumn "${name}__Updated" bit
                     Define-DBColumn "${name}__Before" $column.Type
+                    if ($IncludeAfter) { Define-DBColumn "${name}__After" $column.Type }
                 }
             }
 
@@ -1636,12 +1640,14 @@ Function New-DBAuditTable
             INSERT INTO [$AuditSchema].[$AuditTable]
             (
                 $($(foreach ($k in $primaryKeyList) { "[$k]," }) -join '')
+                $($(foreach ($c in $AuditAfter) { "[${c}__After]," }) -join '')
                 __Timestamp,
                 __Username,
                 __Type
             )
             SELECT
                 $($(foreach ($k in $primaryKeyList) { "I.[$k]," }) -join '')
+                $($(foreach ($c in $AuditAfter) { "I.[${c}]," }) -join '')
                 getdate(),
                 suser_sname(),
                 'I'
@@ -1661,6 +1667,7 @@ Function New-DBAuditTable
                 $($(foreach ($k in $primaryKeyList) { "[$k]," }) -join '')
                 $($(foreach ($c in $AuditBefore) { "[${c}__Updated]," }) -join '')
                 $($(foreach ($c in $AuditBefore) { "[${c}__Before]," }) -join '')
+                $($(foreach ($c in $AuditAfter) { "[${c}__After]," }) -join '')
                 __Timestamp,
                 __Username,
                 __Type
@@ -1669,6 +1676,7 @@ Function New-DBAuditTable
                 $($(foreach ($k in $primaryKeyList) { "I.[$k]," }) -join '')
                 $($(foreach ($c in $AuditBefore) { "CASE WHEN (isnull(D.[$c], '') <> isnull(I.[$c], '')) THEN 1 ELSE 0 END," }) -join '')
                 $($(foreach ($c in $AuditBefore) { "D.[$c]," }) -join '')
+                $($(foreach ($c in $AuditAfter) { "I.[$c]," }) -join '')
                 getdate(),
                 suser_sname(),
                 'U'

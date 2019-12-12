@@ -259,6 +259,75 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Audit Tables' {
+        try { Remove-DBTable DBTest -Table AuditTest -Confirm:$false -ErrorAction Stop } catch { }
+        try { Remove-DBAuditTable DBTest -Table AuditTest -Confirm:$false -ErrorAction SilentlyContinue } catch { }
+
+        New-DBTable DBTest -Table AuditTest -Definition {
+            Define-DBColumn ServiceName nvarchar -Length 32 -Required -PrimaryKey
+            Define-DBColumn State nvarchar -Required
+            Define-DBColumn Description nvarchar
+        }
+
+        It 'Creates Audit Tables' {
+            New-DBAuditTable DBTest -Table AuditTest -IncludeAfter
+            $table = Get-DBTable DBTest | Where-Object Table -eq AuditTest_Audit
+            $table.Table | Should Be AuditTest_Audit
+        }
+
+        It 'Audits Inserts' {
+            [pscustomobject]@{ServiceName='TestService'; State = 'Running'; Description = 'Sample Service'} |
+                Add-DBRow DBTest -Table AuditTest
+
+            $data = Get-DBRow DBTest -Table AuditTest
+            $data.ServiceName | Should Be 'TestService'
+
+            $audit = Get-DBRow DBTest -Table AuditTest_Audit | Where-Object __Type -eq 'I'
+            $audit.__Type | Should Be 'I'
+            $audit.ServiceName | Should Be 'TestService'
+            $audit.State__Before | Should Be $null
+            $audit.State__Updated | Should Be $null
+            $audit.State__After | Should Be 'Running'
+
+            $audit.Description__After | Should Be 'Sample Service'
+        }
+
+        It 'Audits Updates' {
+            [pscustomobject]@{ServiceName='TestService'; State='Stopped'} | Update-DBRow DBTest -Table AuditTest
+
+            $data = Get-DBRow DBTest -Table AuditTest
+            $data.ServiceName | Should Be 'TestService'
+            $data.State | Should Be 'Stopped'
+
+            $audit = Get-DBRow DBTest -Table AuditTest_Audit | Where-Object __Type -eq 'U'
+            $audit.__Type | Should Be 'U'
+            $audit.ServiceName | Should Be 'TestService'
+            $audit.State__Updated | Should Be $true
+            $audit.State__Before | Should Be 'Running'
+            $audit.State__After | Should Be 'Stopped'
+            $audit.Description__Updated | Should Be $false
+            # $audit.Description__Before | Should Be $null # Unsure
+            # $audit.Description__After | Should Be $null # Unsure
+        }
+
+        It 'Audits Deletes' {
+            Remove-DBRow DBTest -Table AuditTest -Confirm:$false
+
+            $data = Get-DBRow DBTest -Table AuditTest
+            @($data).Count | Should Be 0
+
+            $audit = Get-DBRow DBTest -Table AuditTest_Audit | Where-Object __Type -eq 'D'
+            $audit.__Type | Should Be 'D'
+            $audit.ServiceName | Should Be 'TestService'
+            $audit.State__Updated | Should Be $null
+            $audit.State__Before | Should Be 'Stopped'
+            $audit.State__After | Should Be $null
+            $audit.Description__Updated | Should Be $null
+            $audit.Description__Before | Should Be 'Sample Service'
+            $audit.Description__After | Should Be $null
+        }
+    }
+
 
 }
 
