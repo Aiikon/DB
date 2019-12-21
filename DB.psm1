@@ -1012,7 +1012,9 @@ Function Set-DBRow
         {
             if (!$sqlNameRegex.IsMatch($key)) { throw "Name '$($property.Name)' is not a valid SQL column name." }
             "[$key] = @S$s"
-            $parameters["S$s"] = $Set.$key
+            $value = $Set.$key
+            if ($value -eq $null) { $value = [DBNull]::Value }
+            $parameters["S$s"] = $value
             $s += 1
         }
         $setSql = $setSqlList -join ', '
