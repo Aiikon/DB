@@ -1709,7 +1709,7 @@ Function New-DBAuditTable
             )
             SELECT
                 $($(foreach ($k in $primaryKeyList) { "D.[$k]," }) -join '')
-                $($(foreach ($c in $AuditBefore) { "D.[${c}]," }) -join '')
+                $($(foreach ($c in $AuditBefore) { "D.[$c]," }) -join '')
                 getdate(),
                 suser_sname(),
                 'D'
