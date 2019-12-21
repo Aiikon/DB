@@ -532,6 +532,7 @@ Function Get-DBWhereSql
     Param($TablePrefix, $ParameterDict = @{}, $ExistingSql)
     End
     {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
         $T = ''
         if ($TablePrefix) { $T = "$TablePrefix." }
         $opDict = [ordered]@{}
@@ -745,8 +746,11 @@ Function Get-DBRow
     {
         # Don't put a trap {} here or 'Select-Object -First' will throw a pipeline has been stopped exception.
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-
-        $whereSql, $parameters = Get-DBWhereSql -TablePrefix T1
+        try
+        {
+            $whereSql, $parameters = Get-DBWhereSql -TablePrefix T1
+        }
+        catch { $PSCmdlet.ThrowTerminatingError($_) }
 
         $columnList = @()
         $columnList2 = @()
