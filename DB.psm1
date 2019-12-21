@@ -64,8 +64,8 @@ Function Initialize-DBConnectionToSqlDB
     (
         [Parameter(Mandatory=$true,Position=0)] [string] $ConnectionName,
         [Parameter(Mandatory=$true,Position=1)] [string] $Server,
-        [Parameter(Mandatory=$true)] [string] $Instance,
-        [Parameter(Mandatory=$true)] [string] $Database,
+        [Parameter(Position=2)] [string] $Instance,
+        [Parameter(Position=3)] [string] $Database,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $DefaultSchema = 'dbo'
     )
     End
