@@ -729,6 +729,7 @@ Function Get-DBRow
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Sum,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Min,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Max,
+        [Parameter()] [hashtable] $Rename,
         [Parameter()] [scriptblock] $Joins,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
@@ -752,7 +753,7 @@ Function Get-DBRow
         }
         catch { $PSCmdlet.ThrowTerminatingError($_) }
 
-        $columnList = @()
+        $columnList = [ordered]@{}
         $columnList2 = @()
         $columnSql = '*'
         $joinSql = ''
@@ -762,7 +763,13 @@ Function Get-DBRow
             if (!$Column) { $Column = '*' }
             foreach ($c in $Column)
             {
-                $columnList += "T1.[$c]"
+                $name = $c
+                if ($Rename -and $Rename[$c])
+                {
+                    $name = $Rename[$c]
+                    if ($name -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Invalid Rename value: $temp" }
+                }
+                $columnList.Add("T1.[$c]", "[$name]")
             }
         }
 
@@ -800,7 +807,7 @@ Function Get-DBRow
                 }
                 $joinSqlList += " $type JOIN [$rightSchema].[$rightTable] $rightTb ON $($onList -join ' AND ')"
 
-                foreach ($c in $joinColumn) { $columnList += "$rightTb.[$c]" }
+                foreach ($c in $joinColumn) { $columnList.Add("$rightTb.[$c]", "[$c]") }
 
                 foreach ($filter in $Script:FilterList)
                 {
@@ -812,6 +819,12 @@ Function Get-DBRow
                 $t += 1
             }
             $joinSql = $joinSqlList -join ''
+        }
+
+        if ($Rename.Keys.Count -and !$Column)
+        {
+            trap { $PSCmdlet.ThrowTerminatingError($_) }
+            throw "-Column must be specified if -Rename is specified."
         }
 
         if (($Count -or $Sum -or $Min -or $Max) -and (!$Unique -or !$Column))
@@ -855,7 +868,7 @@ Function Get-DBRow
 
         if ($columnList.Count)
         {
-            $columnSql = @(@($columnList) + @($columnList2)) -join ',' -replace "\[\*\]", "*"
+            $columnSql = @(@(foreach ($c in $columnList.Keys) { "$c $($columnList[$c])" }) + @($columnList2)) -join ', ' -replace "\[\*\]", "*"
         }
 
         $query = "SELECT $columnSql FROM [$Schema].[$Table] T1 $joinSql$whereSql$groupSql$orderSql"
