@@ -838,7 +838,7 @@ Function Get-DBRow
         {
             trap { $PSCmdlet.ThrowTerminatingError($_) }
             if (!$Column) { throw "-Column must be specified if -Unique is specified." }
-            $groupSql = " GROUP BY $($columnList -join ',')"
+            $groupSql = " GROUP BY $($columnList.Keys -join ',')"
             if ($Count)
             {
                 $columnList2 += "COUNT(*) [Count]"
