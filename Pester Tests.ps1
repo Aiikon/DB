@@ -167,6 +167,13 @@ Describe 'DB Module' {
             $data[0].Type | Should Be SQL
         }
 
+        It 'Get-DBRow -Column -Unique -Rename' {
+            $results = Get-DBRow DBTest -Table Cluster -Column ClusterType -Unique -Rename @{ClusterType='Type'}
+
+            @($results).Count | Should Be 2
+            $results[0].PSObject.Properties.Name | Should Be Type
+        }
+
         It 'Remove-DBRow -FilterEq' {
             Remove-DBRow DBTest -Table Cluster -FilterEq @{ClusterId=1}
             @(Get-DBRow DBTest -Table Cluster).Count | Should Be 4
