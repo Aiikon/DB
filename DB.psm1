@@ -1120,54 +1120,61 @@ Function Get-DBColumn
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter()] [string] $Schema,
         [Parameter()] [string] $Table,
-        [Parameter()] [string[]] $Column
+        [Parameter()] [string] $Column
     )
     End
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
         
-        $filterEq = @{}
+        $filterSqlList = @()
+        $parameters = @{}
         if ($Table)
         {
-            $filterEq['TABLE_NAME'] = $Table
+            $filterSqlList += "t.name = @TableName"
+            $parameters.TableName = $Table
         }
         if ($PSBoundParameters['Schema'] -or $Table)
         {
-            $filterEq['TABLE_SCHEMA'] = $Schema
+            $filterSqlList += "s.name = @SchemaName"
+            $parameters.SchemaName = $Schema
         }
         if ($Column)
         {
-            $filterEq['COLUMN_NAME'] = $Column
+            $filterSqlList += "col.name = @ColumnName"
+            $parameters.ColumnName = $Column
         }
+        $filterSql = $filterSqlList -join ' AND '
+        if ($filterSql) { $filterSql = "AND $filterSql" }
 
-        $columnList = Invoke-DBQuery $Connection "
-            SELECT c.*, k.CONSTRAINT_NAME PKEY_NAME
-            FROM INFORMATION_SCHEMA.COLUMNS c
-                LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE k ON c.TABLE_CATALOG = k.TABLE_CATALOG
-                    AND c.TABLE_SCHEMA = k.TABLE_SCHEMA AND c.TABLE_NAME = k.TABLE_NAME
-                    AND c.COLUMN_NAME = k.COLUMN_NAME
-            ORDER BY c.TABLE_CATALOG, c.TABLE_SCHEMA, c.TABLE_NAME, c.ORDINAL_POSITION
+        Invoke-DBQuery $Connection -Parameters $parameters -Query "
+            SELECT
+                s.name [Schema],
+                t.name [Table],
+                c.name [Column],
+                ty.name Type,
+                IIF(c.max_length = -1 OR ty.name NOT IN ('char', 'varchar', 'nchar', 'nvarchar', 'varbinary', 'xml'),
+                    NULL, c.max_length) Length,
+                c.column_id Position,
+                c.is_nullable IsNullable,
+                ISNULL(ici.is_primary_key, 0) IsPrimaryKey,
+                c.is_identity IsIdentity
+            FROM sys.columns c
+            INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
+            LEFT OUTER JOIN (
+                SELECT ic.object_id, ic.column_id, i.is_primary_key
+                FROM sys.index_columns ic
+                    INNER JOIN sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+                        AND i.is_primary_key = 1
+            ) ici ON ici.object_id = c.object_id AND ici.column_id = c.column_id
+            INNER JOIN (
+                SELECT object_id, schema_id, name, is_ms_shipped FROM sys.tables
+                UNION ALL
+                SELECT object_id, schema_id, name, is_ms_shipped FROM sys.views
+            ) t ON c.object_id = t.object_id
+            INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+            WHERE t.is_ms_shipped = 0 $filterSql
+            ORDER BY s.name, t.name, c.column_id
         "
-
-        if ($PSBoundParameters['Schema'] -or $Table) { $columnList = $columnList | Where-Object TABLE_SCHEMA -eq $Schema }
-        if ($Table) { $columnList = $columnList | Where-Object TABLE_NAME -eq $Table }
-        if ($Column) { $columnList = $columnList | Where-Object COLUMN_NAME -in $Column }
-
-        foreach ($col in $columnList)
-        {
-            $result = [ordered]@{}
-            $result.Schema = $col.TABLE_SCHEMA
-            $result.Table = $col.TABLE_NAME
-            $result.Column = $col.COLUMN_NAME
-            $result.Type = $col.DATA_TYPE
-            $result.Length = $col.CHARACTER_MAXIMUM_LENGTH
-            if ($result.Length -eq -1) { $result.Length = $null }
-            $result.Position = $col.ORDINAL_POSITION
-            $result.Default = $col.COLUMN_DEFAULT
-            $result.IsNullable = $col.IS_NULLABLE -eq 'YES'
-            $result.IsPrimaryKey = !!$col.PKEY_NAME
-            [pscustomobject]$result
-        }
     }
 }
 
