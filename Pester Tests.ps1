@@ -2,10 +2,37 @@ Import-Module $PSScriptRoot -Force -DisableNameChecking
 
 Describe 'DB Module' {
     Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
-    Get-DBTable DBTest | ForEach-Object { Remove-DBTable DBTest -Schema $_.Schema -Table $_.Table -Confirm:$false }
-    try { Remove-DBSchema DBTest -Schema Tests -Confirm:$false -ErrorAction Stop } catch { }
+    
+    Get-DBTable DBTest -TableType Table |
+        ForEach-Object { Remove-DBTable DBTest -Schema $_.Schema -Table $_.Table -Confirm:$false }
 
-    Context 'Schema Creation' {
+    Get-DBTable DBTest -TableType View |
+        ForEach-Object { Remove-DBView DBTest -Schema $_.Schema -View $_.Table -Confirm:$false }
+
+    try { Remove-DBSchema DBTest -Schema Tests -Confirm:$false -ErrorAction Stop } catch { }
+    try { Remove-DBSchema DBTest -Schema TableHerring -Confirm:$false -ErrorAction Stop } catch { }
+
+    Context 'Query' {
+        It 'Invoke-DBQuery -Mode Reader' {
+            $result1 = Invoke-DBQuery DBTest -Mode Reader "SELECT 'A' Value"
+            $result1.Value | Should Be 'A'
+
+            $result2 = Invoke-DBQuery DBTest "SELECT 'A' Value"
+            $result2.Value | Should Be 'A'
+        }
+
+        It 'Invoke-DBQuery -Mode Scalar' {
+            $result = Invoke-DBQuery DBTest -Mode Scalar "SELECT 'A' Value"
+            $result | Should Be 'A'
+        }
+
+        It 'Invoke-DBQuery -Mode NonQuery' {
+            $result = Invoke-DBQuery DBTest -Mode NonQuery "SELECT 'A' Value"
+            $result | Should Be -1
+        }
+    }
+
+    Context 'Schemas' {
         
         It 'New-DBSchema' {
             New-DBSchema DBTest -Schema Tests
@@ -22,7 +49,7 @@ Describe 'DB Module' {
         }
     }
 
-    Context 'Table Creation' {
+    Context 'Table/Views' {
         
         It 'New-DBTable' {
 
@@ -35,11 +62,60 @@ Describe 'DB Module' {
             Get-DBTable DBTest | Where-Object Table -eq Cluster | Should Not BeNullOrEmpty 
         }
 
+        New-DBSchema DBTest -Schema TableHerring
+
+        New-DBTable DBTest -Table Test1 -Definition { Define-DBColumn Id int -Required -PrimaryKey }
+        New-DBTable DBTest -Table Test2 -Definition { Define-DBColumn Id int -Required -PrimaryKey }
+
+        New-DBTable DBTest -Schema TableHerring -Table Test1 -Definition { Define-DBColumn Id int -Required -PrimaryKey }
+        New-DBTable DBTest -Schema TableHerring -Table Test2 -Definition { Define-DBColumn Id int -Required -PrimaryKey }
+
+        It 'Get-DBTable -Table' {
+            $table = Get-DBTable DBTest -Table Test1
+            @($table).Count | Should Be 1
+            $table.Table | Should Be Test1
+
+            $tableList = Get-DBTable DBTest
+            @($tableList).Count | Should BeGreaterThan 1 
+        }
+
+        It 'Get-DBTable -Schema' {
+            $table = Get-DBTable DBTest -Schema TableHerring
+            @($table).Count | Should Be 2
+            $table[0].Table | Should Be Test1
+            $table[1].Table | Should Be Test2
+            $table[0].TableType | Should Be Table
+        }
+
+        It 'Get-DBTable -TableType Table' {
+            $table = Get-DBTable DBTest -TableType Table
+            $table[0].TableType | Should Be Table
+        }
+
         It 'Remove-DBTable' {
 
             Remove-DBTable DBTest -Table Cluster -Confirm:$false
 
             Get-DBTable DBTest | Where-Object Table -eq Cluster | Should BeNullOrEmpty 
+        }
+    }
+
+    Context 'View Creation' {
+        It 'New-DBView' {
+            New-DBView DBTest -View View1 -SQL "SELECT * FROM Test1"
+            New-DBView DBTest -View View1 -SQL "SELECT * FROM Test1" -Force
+
+            $view = Get-DBTable DBTest -Table View1
+            $view.Table | Should Be View1
+        }
+
+        It 'Get-DBTable -TableType View' {
+            $table = Get-DBTable DBTest -TableType View
+            $table[0].TableType | Should Be View
+        }
+        
+        It 'Remove-DBView' {
+            Remove-DBView DBTest -View View1 -Confirm:$false
         }
     }
 
@@ -236,6 +312,10 @@ Describe 'DB Module' {
 
             $data | Measure-Object | ForEach-Object Count | Should Be 1
             $data[0].ClusterName | Should Be SQL003
+        }
+
+        It 'Get-DBRow -Join -Rename' {
+             
         }
 
         It 'Get-DBRow -Unique -Count -Min -Max -OrderBy -Joins (No Exception Only)' {

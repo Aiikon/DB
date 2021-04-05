@@ -347,22 +347,56 @@ Function Get-DBTable
 {
     Param
     (
-        [Parameter(Mandatory=$true, Position=0)] [string] $Connection
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [ValidateSet('Both', 'Table', 'View')] [string] $TableType = 'Both'
     )
     End
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
-        $dbConnection = Connect-DBConnection $Connection
-        $dbConnection.ConnectionObject.GetSchema('Tables') |
-            ForEach-Object {
-                $temp = [ordered]@{}
-                $temp.Database = $_.TABLE_CATALOG
-                $temp.Schema = $_.TABLE_SCHEMA
-                $temp.Table = $_.TABLE_NAME
-                $temp.TableType = $_.TABLE_TYPE
-                [pscustomobject]$temp
-            } |
-            Sort-Object Database, Schema, Table
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        
+        $filterSqlList = @()
+        $parameters = @{}
+        if ($Table)
+        {
+            $filterSqlList += "t.name = @TableName"
+            $parameters.TableName = $Table
+        }
+        if ($PSBoundParameters['Schema'] -or $Table)
+        {
+            $filterSqlList += "s.name = @SchemaName"
+            $parameters.SchemaName = $Schema
+        }
+        $filterSql = $filterSqlList -join ' AND '
+        if ($filterSql) { $filterSql = "AND $filterSql" }
+
+        $tableSelect = @(
+            if ($TableType -in 'Both', 'Table')
+            {
+                "SELECT object_id, schema_id, name, is_ms_shipped, 'Table' TableType FROM sys.tables"
+            }
+            if ($TableType -in 'Both', 'View')
+            {
+                "SELECT object_id, schema_id, name, is_ms_shipped, 'View' TableType FROM sys.views"
+            }
+        ) -join ' UNION ALL '
+
+        $tableList = Invoke-DBQuery $Connection -Parameters $parameters -ErrorAction Stop -Query "
+            SELECT
+                s.name [Schema],
+                t.name [Table],
+                t.TableType
+            FROM (
+                $tableSelect
+            ) t
+            INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+            WHERE t.is_ms_shipped = 0 $filterSql
+            ORDER BY s.name, t.name
+        "
+
+        $tableList
     }
 }
 
