@@ -1636,6 +1636,59 @@ Function Define-DBPrimaryKey
     }
 }
 
+Function Get-DBTrigger
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Trigger,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        
+        $filterSqlList = @()
+        $parameters = @{}
+        if ($Trigger)
+        {
+            $filterSqlList += "tr.name = @Trigger"
+            $parameters.Trigger = $Trigger
+        }
+        if ($PSBoundParameters['Schema'] -or $Table)
+        {
+            $filterSqlList += "t.name = @Table"
+            $parameters.Table = $Table
+        }
+        if ($PSBoundParameters['Schema'] -or $Trigger -or $Table)
+        {
+            $filterSqlList += "s.name = @Schema"
+            $parameters.Schema = $Schema
+        }
+        $filterSql = $filterSqlList -join ' AND '
+        if ($filterSql) { $filterSql = "AND $filterSql" }
+
+        $triggerList = Invoke-DBQuery $Connection -Parameters $parameters -ErrorAction Stop -Query "
+            SELECT
+                s.name [Schema],
+                t.name [Table],
+                tr.name [Trigger],
+                sm.definition [SQL]
+            FROM sys.triggers tr
+                INNER JOIN sys.tables t ON tr.parent_id = t.object_id
+                INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+                INNER JOIN sys.sql_modules sm ON tr.object_id = sm.object_id
+            WHERE tr.is_ms_shipped = 0 $filterSql
+            ORDER BY s.name, t.name, tr.name
+        "
+
+        $triggerList
+    }
+}
+
 Function New-DBTrigger
 {
     [CmdletBinding(PositionalBinding=$false)]
@@ -1669,9 +1722,9 @@ Function Remove-DBTrigger
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
-        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
-        [Parameter(Mandatory=$true)] [ValidateSet('Insert', 'Update', 'Delete')] [string] $TriggerFor,
+        [Parameter()] [ValidateSet('Insert', 'Update', 'Delete')] [string] $TriggerFor,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Trigger
     )
     End

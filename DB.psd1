@@ -124,6 +124,7 @@ FunctionsToExport = @(
     'Get-DBPrimaryKey'
     'New-DBPrimaryKey'
     'Define-DBPrimaryKey'
+    'Get-DBTrigger'
     'New-DBTrigger'
     'Remove-DBTrigger'
     'New-DBAuditTable'

@@ -395,6 +395,40 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Triggers' {
+        It 'New-DBTrigger' {
+            New-DBTable DBTest -Table TriggerSource -Definition {
+                Define-DBColumn Id int -Required -PrimaryKey
+            }
+
+            New-DBTable DBTest -Table TriggerDestination -Definition {
+                Define-DBColumn Id int -Required -PrimaryKey
+            }
+
+            New-DBTrigger DBTest -Table TriggerSource -TriggerFor Insert -Trigger TriggerSource_Insert -SQL "INSERT INTO TriggerDestination (Id) SELECT Id FROM INSERTED"
+
+            [pscustomobject]@{Id=9} | Add-DBRow DBTest -Table TriggerSource
+            $data = Get-DBRow DBTest -Table TriggerDestination -FilterEq @{Id=9}
+            $data.Id | Should Be 9
+        }
+
+        It 'Get-DBTrigger' {
+            $trigger1 = Get-DBTrigger DBTest -Table TriggerSource
+            $trigger1.Trigger | Should Be 'TriggerSource_Insert'
+
+            $trigger2 = Get-DBTrigger DBTest -Trigger TriggerSource_Insert
+            $trigger2.SQL | Should Match "CREATE TRIGGER"
+            $trigger2.SQL | Should Match ([Regex]::Escape("INSERT INTO TriggerDestination (Id) SELECT Id FROM INSERTED"))
+        }
+
+        It 'Remove-DBTrigger' {
+            Remove-DBTrigger DBTest -Trigger TriggerSource_Insert -Confirm:$false
+
+            $trigger = Get-DBTrigger DBTest -Trigger TriggerSource_Insert
+            $trigger | Should BeNullOrEmpty
+        }
+    }
+
     Context 'Audit Tables' {
         try { Remove-DBTable DBTest -Table AuditTest -Confirm:$false -ErrorAction Stop } catch { }
         try { Remove-DBAuditTable DBTest -Table AuditTest -Confirm:$false -ErrorAction SilentlyContinue } catch { }
