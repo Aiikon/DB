@@ -527,11 +527,17 @@ Function New-DBView
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $View,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
-        [Parameter(Mandatory=$true)] [string] $SQL
+        [Parameter(Mandatory=$true)] [string] $SQL,
+        [Parameter()] [switch] $Force
     )
     End
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if ($Force -and (Get-DBTable $Connection -Schema $Schema -Table $View))
+        {
+            Remove-DBView $Connection -Schema $Schema -View $View -Confirm:$false
+        }
 
         Invoke-DBQuery $Connection "CREATE VIEW [$Schema].[$View] AS $SQL"
     }
