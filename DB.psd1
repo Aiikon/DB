@@ -102,7 +102,7 @@ FunctionsToExport = @(
     'Get-DBTable'
     'New-DBTable'
     'Remove-DBTable'
-    'Get-DBView'
+    'Get-DBViewSql'
     'New-DBView'
     'Remove-DBView'
     'Define-DBJoin'

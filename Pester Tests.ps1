@@ -117,6 +117,12 @@ Describe 'DB Module' {
         It 'Remove-DBView' {
             Remove-DBView DBTest -View View1 -Confirm:$false
         }
+
+        It 'Get-DBViewSql' {
+            New-DBView DBTest -View View2 -SQL "SELECT * FROM Test1"
+            $view = Get-DBViewSql DBTest -View View2
+            $view.SQL | Should Be "CREATE VIEW [Tests].[View2] AS SELECT * FROM Test1"
+        }
     }
 
     Context 'Table Rows' {

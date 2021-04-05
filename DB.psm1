@@ -506,17 +506,47 @@ Function Remove-DBTable
     }
 }
 
-Function Get-DBView
+Function Get-DBViewSql
 {
     Param
     (
-        [Parameter(Mandatory=$true, Position=0)] [object] $Connection
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $View,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
     )
     End
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
-        $dbConnection = Connect-DBConnection $Connection
-        $dbConnection.ConnectionObject.GetSchema('Views')
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        
+        $filterSqlList = @()
+        $parameters = @{}
+        if ($View)
+        {
+            $filterSqlList += "v.name = @ViewName"
+            $parameters.ViewName = $View
+        }
+        if ($PSBoundParameters['Schema'] -or $View)
+        {
+            $filterSqlList += "s.name = @SchemaName"
+            $parameters.SchemaName = $Schema
+        }
+        $filterSql = $filterSqlList -join ' AND '
+        if ($filterSql) { $filterSql = "AND $filterSql" }
+
+        $tableList = Invoke-DBQuery $Connection -Parameters $parameters -ErrorAction Stop -Query "
+            SELECT
+                s.name [Schema],
+                v.name [View],
+                sm.definition [SQL]
+            FROM sys.views v
+                INNER JOIN sys.schemas s ON v.schema_id = s.schema_id
+                INNER JOIN sys.sql_modules sm ON v.object_id = sm.object_id
+            WHERE v.is_ms_shipped = 0 $filterSql
+            ORDER BY s.name, v.name
+        "
+
+        $tableList
     }
 }
 
