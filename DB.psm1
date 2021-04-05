@@ -752,7 +752,8 @@ Function Define-DBJoin
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $RightKey,
         [Parameter()] [ValidateSet('Left', 'Inner', 'Right', 'FullOuter')] [string] $Type = 'Left',
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column,
-        [Parameter()] [hashtable] $FilterEq ,
+        [Parameter()] [hashtable] $Rename,
+        [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
         [Parameter()] [hashtable] $FilterGe,
@@ -776,6 +777,7 @@ Function Define-DBJoin
         $definition.RightKey = $RightKey
         $definition.Type = $Type
         $definition.Column = $Column
+        $definition.Rename = $Rename
         foreach ($filter in $Script:FilterList)
         {
             $definition.$filter = $PSBoundParameters[$filter]
@@ -837,7 +839,7 @@ Function Get-DBRow
                 if ($Rename -and $Rename[$c])
                 {
                     $name = $Rename[$c]
-                    if ($name -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Invalid Rename value: $temp" }
+                    if ($name -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Invalid Rename value: $name" }
                 }
                 $columnList.Add("T1.[$c]", "[$name]")
             }
@@ -877,7 +879,13 @@ Function Get-DBRow
                 }
                 $joinSqlList += " $type JOIN [$rightSchema].[$rightTable] $rightTb ON $($onList -join ' AND ')"
 
-                foreach ($c in $joinColumn) { $columnList.Add("$rightTb.[$c]", "[$c]") }
+                foreach ($c in $joinColumn)
+                {
+                    $name = $c
+                    if ($joinDef.Rename.$c) { $name = $joinDef.Rename.$c }
+                    if ($name -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Invalid Rename value: $name" }
+                    $columnList.Add("$rightTb.[$c]", "[$name]")
+                }
 
                 foreach ($filter in $Script:FilterList)
                 {

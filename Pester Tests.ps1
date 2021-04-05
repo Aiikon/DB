@@ -321,7 +321,44 @@ Describe 'DB Module' {
         }
 
         It 'Get-DBRow -Join -Rename' {
-             
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -Rename @{ClusterType='Type1'}
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -Rename @{ClusterType='Type2'}
+            }
+
+            $data[0].ClusterName | Should Be SQL001
+            $data[0].Type1 | Should Be SQL
+            $data[0].Type2 | Should Be SQL
+        }
+
+        It 'Get-DBRow -Rename BadName!!' {
+            $hadException = $false
+            try
+            {
+                Get-DBRow DBTest -Table Cluster -Column ClusterId, ClusterName -Rename @{ClusterName='ClusterName;'}
+            }
+            catch
+            {
+                $hadException = $_.Exception.Message -match "Invalid Rename value"
+            }
+
+            $hadException | Should Be $true
+        }
+
+        It 'Get-DBRow -Join -Rename BadName!!' {
+            $hadException = $false
+            try
+            {
+                Get-DBRow DBTest -Table Cluster -Column ClusterId, ClusterName  -Joins {
+                    Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -Rename @{ClusterType='Type;'}
+                }
+            }
+            catch
+            {
+                $hadException = $_.Exception.Message -match "Invalid Rename value"
+            }
+
+            $hadException | Should Be $true
         }
 
         It 'Get-DBRow -Unique -Count -Min -Max -OrderBy -Joins (No Exception Only)' {
