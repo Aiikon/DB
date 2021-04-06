@@ -370,6 +370,22 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Get/Set/Add/Remove Row Edge Cases' {
+        It 'Set-DBRow with Keys column name' {
+            New-DBTable DBTest -Table AddKeysTest -Definition {
+                Define-DBColumn Id int -Required -PrimaryKey
+                Define-DBColumn Keys nvarchar -Required
+            }
+
+            [pscustomobject]@{
+                Id = 1
+                Keys = 'Test'
+            } | Add-DBRow DBTest -Table AddKeysTest
+
+            Set-DBRow DBTest -Table AddKeysTest -Set @{Keys='New'} -FilterEq @{Id=1}
+        }
+    }
+
     Context 'Table Columns' {
         try { Remove-DBTable DBTest -Table ColumnTest -Confirm:$false -ErrorAction Stop } catch { }
         New-DBTable DBTest -Table ColumnTest -Definition {

@@ -192,10 +192,9 @@ Function Invoke-DBQuery
 
         "Final Query:", $Query | Write-Verbose
 
-        foreach ($parameter in $Parameters.Keys)
+        foreach ($parameter in $Parameters.GetEnumerator())
         {
-            $value = $Parameters[$parameter]
-            [void]$command.Parameters.Add($parameter, $value)
+            [void]$command.Parameters.Add($parameter.Key, $parameter.Value)
         }
 
         try
@@ -621,7 +620,7 @@ Function Get-DBWhereSql
 
         $whereList = New-Object System.Collections.Generic.List[string]
         
-        $p = $ParameterDict.Keys.Count
+        $p = @($ParameterDict.GetEnumerator()).Count
         foreach ($op in $opDict.Keys)
         {
             $filterDict = $PSCmdlet.SessionState.PSVariable.GetValue("Filter$op")
@@ -899,7 +898,7 @@ Function Get-DBRow
             $joinSql = $joinSqlList -join ''
         }
 
-        if ($Rename.Keys.Count -and !$Column)
+        if ($Rename -and @($Rename.GetEnumerator()).Count -and !$Column)
         {
             trap { $PSCmdlet.ThrowTerminatingError($_) }
             throw "-Column must be specified if -Rename is specified."
@@ -1061,7 +1060,7 @@ Function Remove-DBRow
 
         $query = "DELETE FROM [$Schema].[$Table]$whereSql"
 
-        $hasFilter = $parameters.Keys.Count -gt 0
+        $hasFilter = @($parameters.GetEnumerator()).Count -gt 0
         if ($hasFilter -or $PSCmdlet.ShouldProcess("$Schema.$Table", 'Remove All Rows'))
         {
             Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters
@@ -1094,20 +1093,20 @@ Function Set-DBRow
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
 
-        if (!$Set.Keys.Count) { throw "One or more Set values are required." }
+        if (!@($Set.GetEnumerator()).Count) { throw "One or more Set values are required." }
 
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
         $whereSql, $parameters = Get-DBWhereSql
-        $hasFilter = $parameters.Keys.Count -gt 0
+        $hasFilter = @($parameters.GetEnumerator()).Count -gt 0
         $sqlNameRegex = [regex]"\A[A-Za-z0-9 _\-]+\Z"
 
         $s = 0
-        $setSqlList = foreach ($key in $Set.Keys)
+        $setSqlList = foreach ($key in @($Set.GetEnumerator()).Key)
         {
             if (!$sqlNameRegex.IsMatch($key)) { throw "Name '$($property.Name)' is not a valid SQL column name." }
             "[$key] = @S$s"
-            $value = $Set.$key
+            $value = $Set[$key]
             if ($value -eq $null) { $value = [DBNull]::Value }
             $parameters["S$s"] = $value
             $s += 1
