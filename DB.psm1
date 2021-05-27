@@ -197,7 +197,7 @@ Function Invoke-DBQuery
             [void]$command.Parameters.Add($parameter.Key, $parameter.Value)
         }
 
-        try
+        $resultList = try
         {
             if ($Mode -eq 'NonQuery')
             {
@@ -241,6 +241,8 @@ Function Invoke-DBQuery
             $reader.Close()
             $command.Dispose()
         }
+
+        $resultList
 
         if ($exception) { throw $exception }
     }
