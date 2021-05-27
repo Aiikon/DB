@@ -384,6 +384,40 @@ Describe 'DB Module' {
 
             Set-DBRow DBTest -Table AddKeysTest -Set @{Keys='New'} -FilterEq @{Id=1}
         }
+
+        It 'Add-DBRow positions correctly after a column has been deleted' {
+            New-DBTable DBTest -Table AddWithMissing -Definition {
+                Define-DBColumn One int -Required -PrimaryKey
+                Define-DBColumn Two int
+                Define-DBColumn Three int
+            }
+
+            Remove-DBColumn DBTest -Table AddWithMissing -Column Two -Confirm:$false
+
+            $colList = Get-DBColumn DBTest -Table AddWithMissing
+            $colList[0].Position | Should Be 1
+            $colList[1].Position | Should Be 3
+
+            [pscustomobject]@{
+                One = 1
+                Three = 3
+            } | Add-DBRow DBTest -Table AddWithMissing
+
+            $data1 = Get-DBRow DBTest -Table AddWithMissing -FilterEq @{One=1}
+            $data1.One | Should Be 1
+            $data1.Three | Should Be 3
+
+            [pscustomobject]@{
+                One = -1
+                Three = -3
+            } | Add-DBRow DBTest -Table AddWithMissing -BulkCopy
+
+            $data2 = Get-DBRow DBTest -Table AddWithMissing -FilterEq @{One=-1}
+            $data2.One | Should Be -1
+            $data2.Three | Should Be -3
+
+            Remove-DBTable DBTest -Table AddWithMissing -Confirm:$false
+        }
     }
 
     Context 'Table Columns' {
