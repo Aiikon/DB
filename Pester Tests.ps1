@@ -30,6 +30,16 @@ Describe 'DB Module' {
             $result = Invoke-DBQuery DBTest -Mode NonQuery "SELECT 'A' Value"
             $result | Should Be -1
         }
+
+        It 'Invoke-DBQuery -Timeout' {
+            $message = try
+            {
+                Invoke-DBQuery DBTest -Mode Scalar "WAITFOR DELAY '00:00:10'; SELECT 'A' Value" -Timeout 1 -ErrorAction Stop | Out-Null
+            }
+            catch { $_.Exception.Message }
+
+            $message | Should Match 'Execution Timeout Expired'
+        }
     }
 
     Context 'Schemas' {
@@ -371,6 +381,15 @@ Describe 'DB Module' {
     }
 
     Context 'Get/Set/Add/Remove Row Edge Cases' {
+        It 'Parameter -Timeout exists for all -DBRow cmdlets' {
+            Get-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null
+            Get-DBRow DBTest -Table Cluster -FilterEq @{ClusterId=54625654} -Timeout 0 -ErrorAction Stop | Out-Null
+            @() | Add-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null
+            @() | Update-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null
+            Set-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null
+            $true | Should Be $true # Just make sure it accepts the parameter, it's a pain to test
+        }
+
         It 'Set-DBRow with Keys column name' {
             New-DBTable DBTest -Table AddKeysTest -Definition {
                 Define-DBColumn Id int -Required -PrimaryKey

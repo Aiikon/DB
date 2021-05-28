@@ -178,6 +178,7 @@ Function Invoke-DBQuery
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter(Mandatory=$true, Position=1)] [string] $Query,
         [Parameter()] [hashtable] $Parameters = @{},
+        [Parameter()] [Nullable[int]] $Timeout,
         [Parameter()] [string] [ValidateSet('Reader', 'NonQuery', 'Scalar')] $Mode = 'Reader'
     )
     End
@@ -187,6 +188,7 @@ Function Invoke-DBQuery
 
         $command = $dbConnection.ConnectionObject.CreateCommand()
         $command.CommandText = $Query
+        if ($Timeout -ne $null) { $command.CommandTimeout = $Timeout }
         if ($dbConnection.Transaction) { $command.Transaction = $dbConnection.Transaction }
         $exception = $null
 
@@ -804,6 +806,7 @@ Function Get-DBRow
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Max,
         [Parameter()] [hashtable] $Rename,
         [Parameter()] [scriptblock] $Joins,
+        [Parameter()] [Nullable[int]] $Timeout,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
@@ -952,7 +955,7 @@ Function Get-DBRow
 
         $query = "SELECT $columnSql FROM [$Schema].[$Table] T1 $joinSql$whereSql$groupSql$orderSql"
 
-        Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters
+        Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters -Timeout $Timeout
     }
 }
 
@@ -964,7 +967,8 @@ Function Add-DBRow
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
-        [Parameter()] [switch] $BulkCopy
+        [Parameter()] [switch] $BulkCopy,
+        [Parameter()] [Nullable[int]] $Timeout
     )
     Begin
     {
@@ -1020,10 +1024,12 @@ Function Add-DBRow
                 if (!$dbConnection.Transaction) { $options += [System.Data.SqlClient.SqlBulkCopyOptions]::UseInternalTransaction }
                 $sqlBulkCopy = New-Object System.Data.SqlClient.SqlBulkCopy $dbConnection.ConnectionObject, $options, $dbConnection.Transaction
                 $sqlBulkCopy.DestinationTableName = "[$Schema].[$Table]"
+                if ($Timeout -ne $null) { $sqlBulkCopy.BulkCopyTimeout = $Timeout }
                 $sqlBulkCopy.WriteToServer($dataTable)
             }
             else
             {
+                if ($Timeout -ne $null) { throw "Timeout is not yet implemented." }
                 [void]$tableAdapter.Fill($dataTable)
                 [void]$tableAdapter.Update($dataTable)
             }
@@ -1040,6 +1046,7 @@ Function Remove-DBRow
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [Nullable[int]] $Timeout,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
@@ -1065,7 +1072,7 @@ Function Remove-DBRow
         $hasFilter = @($parameters.GetEnumerator()).Count -gt 0
         if ($hasFilter -or $PSCmdlet.ShouldProcess("$Schema.$Table", 'Remove All Rows'))
         {
-            Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters
+            Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters -Timeout $Timeout
         }
     }
 }
@@ -1079,6 +1086,7 @@ Function Set-DBRow
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(Mandatory=$true)] [hashtable] $Set,
+        [Parameter()] [Nullable[int]] $Timeout,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
@@ -1119,7 +1127,7 @@ Function Set-DBRow
 
         if ($hasFilter -or $PSCmdlet.ShouldProcess("$Schema.$Table", 'Update All Rows'))
         {
-            Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters
+            Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters -Timeout $Timeout
         }
     }
 }
@@ -1132,7 +1140,8 @@ Function Update-DBRow
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
-        [Parameter()] [string[]] $Keys
+        [Parameter()] [string[]] $Keys,
+        [Parameter()] [Nullable[int]] $Timeout
     )
     Begin
     {
@@ -1162,7 +1171,7 @@ Function Update-DBRow
             return
         }
 
-        Set-DBRow -Connection $Connection -Schema $Schema -Table $Table -Set $set -FilterEq $filterEq
+        Set-DBRow -Connection $Connection -Schema $Schema -Table $Table -Set $set -FilterEq $filterEq -Timeout $Timeout
     }
 }
 
