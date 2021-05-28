@@ -1903,6 +1903,20 @@ Function Remove-DBAuditTable
     }
 }
 
+Function Update-DBIntellisense
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection
+    )
+    End
+    {
+        $Script:ColumnDict = @{}
+        $Script:ColumnDict[$Connection] = Get-DBColumn $connectionName
+    }
+}
+
 $Script:ColumnDict = @{}
 
 foreach ($command in (Get-Command -Module DB))

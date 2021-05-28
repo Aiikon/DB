@@ -129,6 +129,7 @@ FunctionsToExport = @(
     'Remove-DBTrigger'
     'New-DBAuditTable'
     'Remove-DBAuditTable'
+    'Update-DBIntellisense'
 )
 
 # Cmdlets to export from this module
