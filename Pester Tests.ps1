@@ -380,6 +380,51 @@ Describe 'DB Module' {
         }
     }
 
+
+    Context 'Define-DBJoin with -JoinFilter*' {
+        It 'Get-DBRow Join with JoinFilterEq' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Verbose -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -JoinFilterEq @{ClusterType='SQL'}
+            }
+
+            $data[0].ClusterName | Should Be SQL001
+            $data[0].ClusterType | Should Be SQL
+            $data[2].ClusterType | Should Be $null
+        }
+
+        It 'Get-DBRow Join with JoinFilterNe' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Verbose -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -JoinFilterNe @{ClusterType='SQL'}
+            }
+
+            $data[0].ClusterName | Should Be SQL001
+            $data[0].ClusterType | Should Be $null
+            $data[2].ClusterType | Should Be File
+        }
+
+        It 'Get-DBRow Join with JoinFilterExists' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Verbose -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -JoinFilterExists ([pscustomobject]@{ClusterName='SQL001';ClusterType='SQL'})
+            }
+
+            $data[0].ClusterName | Should Be SQL001
+            $data[0].ClusterType | Should Be SQL
+            $data[1].ClusterType | Should Be $null
+            $data[2].ClusterType | Should Be $null
+        }
+
+        It 'Get-DBRow Join with Filter + JoinFilterEq' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -FilterGt @{ClusterId=1} -Verbose -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -JoinFilterEq @{ClusterType='SQL'}
+            }
+
+            $data[0].ClusterName | Should Be SQL002
+            $data[0].ClusterType | Should Be SQL
+            $data[1].ClusterName | Should Be CAFile
+            $data[1].ClusterType | Should Be $null
+        }
+    }
+
     Context 'Get/Set/Add/Remove Row Edge Cases' {
         It 'Parameter -Timeout exists for all -DBRow cmdlets' {
             Get-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null

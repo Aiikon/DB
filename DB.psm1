@@ -766,7 +766,18 @@ Function Define-DBJoin
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
         [Parameter()] [string[]] $FilterNotNull,
-        [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
+        [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists,
+        [Parameter()] [hashtable] $JoinFilterEq,
+        [Parameter()] [hashtable] $JoinFilterNe,
+        [Parameter()] [hashtable] $JoinFilterGt,
+        [Parameter()] [hashtable] $JoinFilterGe,
+        [Parameter()] [hashtable] $JoinFilterLt,
+        [Parameter()] [hashtable] $JoinFilterLe,
+        [Parameter()] [hashtable] $JoinFilterLike,
+        [Parameter()] [hashtable] $JoinFilterNotLike,
+        [Parameter()] [string[]] $JoinFilterNull,
+        [Parameter()] [string[]] $JoinFilterNotNull,
+        [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $JoinFilterExists
     )
     End
     {
@@ -784,6 +795,7 @@ Function Define-DBJoin
         foreach ($filter in $Script:FilterList)
         {
             $definition.$filter = $PSBoundParameters[$filter]
+            $definition."Join$filter" = $PSBoundParameters["Join$filter"]
         }
         [pscustomobject]$definition
     }
@@ -881,7 +893,24 @@ Function Get-DBRow
                 {
                     "$leftTb.[$(@($leftKey)[$i])] = $rightTb.[$(@($rightKey)[$i])]"
                 }
-                $joinSqlList += " $type JOIN [$rightSchema].[$rightTable] $rightTb ON $($onList -join ' AND ')"
+                $joinSql = " $type JOIN [$rightSchema].[$rightTable] $rightTb ON $($onList -join ' AND ')"
+
+                foreach ($filter in $Script:FilterList)
+                {
+                    Remove-Variable $filter -ErrorAction Ignore
+                    if ($joinDef."Join$filter")
+                    {
+                        Set-Variable -Name $filter -Value $joinDef."Join$filter"
+                    }
+                }
+                
+                $joinWhereSql, $parameters = Get-DBWhereSql -TablePrefix $rightTb -ParameterDict $parameters
+                if ($joinWhereSql)
+                {
+                    $joinSql = "$joinSql$($joinWhereSql -replace "^ WHERE", " AND")"
+                }
+
+                $joinSqlList += $joinSql
 
                 foreach ($c in $joinColumn)
                 {
