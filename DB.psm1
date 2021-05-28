@@ -1815,7 +1815,7 @@ Function New-DBAuditTable
             SELECT
                 $($(foreach ($k in $primaryKeyList) { "I.[$k]," }) -join '')
                 $($(foreach ($c in $AuditAfter) { "I.[${c}]," }) -join '')
-                getdate(),
+                getutcdate(),
                 suser_sname(),
                 'I'
             FROM INSERTED I
@@ -1844,7 +1844,7 @@ Function New-DBAuditTable
                 $($(foreach ($c in $AuditBefore) { "CASE WHEN (isnull(D.[$c], '') <> isnull(I.[$c], '')) THEN 1 ELSE 0 END," }) -join '')
                 $($(foreach ($c in $AuditBefore) { "D.[$c]," }) -join '')
                 $($(foreach ($c in $AuditAfter) { "I.[$c]," }) -join '')
-                getdate(),
+                getutcdate(),
                 suser_sname(),
                 'U'
             FROM DELETED D INNER JOIN INSERTED I ON $($(foreach ($k in $primaryKeyList) { "D.[$k] = I.[$k]" }) -join ' AND ')
@@ -1871,7 +1871,7 @@ Function New-DBAuditTable
             SELECT
                 $($(foreach ($k in $primaryKeyList) { "D.[$k]," }) -join '')
                 $($(foreach ($c in $AuditBefore) { "D.[$c]," }) -join '')
-                getdate(),
+                getutcdate(),
                 suser_sname(),
                 'D'
             FROM DELETED D
