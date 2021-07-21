@@ -602,7 +602,23 @@ $Script:FilterList = @(
 Function Get-DBWhereSql
 {
     [CmdletBinding()]
-    Param($TablePrefix, $ParameterDict = @{}, $ExistingSql)
+    Param
+    (
+        [Parameter()] $TablePrefix,
+        [Parameter()] $ParameterDict = @{},
+        [Parameter()] $ExistingSql,
+        [Parameter()] [hashtable] $FilterEq,
+        [Parameter()] [hashtable] $FilterNe,
+        [Parameter()] [hashtable] $FilterGt,
+        [Parameter()] [hashtable] $FilterGe,
+        [Parameter()] [hashtable] $FilterLt,
+        [Parameter()] [hashtable] $FilterLe,
+        [Parameter()] [hashtable] $FilterLike,
+        [Parameter()] [hashtable] $FilterNotLike,
+        [Parameter()] [string[]] $FilterNull,
+        [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
+    )
     End
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
@@ -837,7 +853,12 @@ Function Get-DBRow
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
         try
         {
-            $whereSql, $parameters = Get-DBWhereSql -TablePrefix T1
+            $filterSplat = @{}
+            foreach ($filter in $Script:FilterList)
+            {
+                if ($PSBoundParameters[$filter]) { $filterSplat[$filter] = $PSBoundParameters[$filter] }
+            }
+            $whereSql, $parameters = Get-DBWhereSql -TablePrefix T1 @filterSplat
         }
         catch { $PSCmdlet.ThrowTerminatingError($_) }
 
@@ -895,16 +916,13 @@ Function Get-DBRow
                 }
                 $joinSql = " $type JOIN [$rightSchema].[$rightTable] $rightTb ON $($onList -join ' AND ')"
 
+                $filterSplat = @{}
                 foreach ($filter in $Script:FilterList)
                 {
-                    Remove-Variable $filter -ErrorAction Ignore
-                    if ($joinDef."Join$filter")
-                    {
-                        Set-Variable -Name $filter -Value $joinDef."Join$filter"
-                    }
+                    if ($joinDef."Join$filter") { $filterSplat[$filter] = $joinDef."Join$filter" }
                 }
-                
-                $joinWhereSql, $parameters = Get-DBWhereSql -TablePrefix $rightTb -ParameterDict $parameters
+
+                $joinWhereSql, $parameters = Get-DBWhereSql -TablePrefix $rightTb -ParameterDict $parameters @filterSplat
                 if ($joinWhereSql)
                 {
                     $joinSql = "$joinSql$($joinWhereSql -replace "^ WHERE", " AND")"
@@ -920,12 +938,13 @@ Function Get-DBRow
                     $columnList.Add("$rightTb.[$c]", "[$name]")
                 }
 
+                $filterSplat = @{}
                 foreach ($filter in $Script:FilterList)
                 {
-                    Remove-Variable $filter -ErrorAction Ignore
-                    if ($joinDef.$filter) { Set-Variable -Name $filter -Value $joinDef.$filter }
+                    if ($joinDef.$filter) { $filterSplat[$filter] = $joinDef.$filter }
                 }
-                $whereSql, $parameters = Get-DBWhereSql -TablePrefix $rightTb -ParameterDict $parameters -ExistingSql $whereSql
+
+                $whereSql, $parameters = Get-DBWhereSql -TablePrefix $rightTb -ParameterDict $parameters -ExistingSql $whereSql @filtersplat
 
                 $t += 1
             }
@@ -1094,7 +1113,13 @@ Function Remove-DBRow
 
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
-        $whereSql, $parameters = Get-DBWhereSql
+        $filterSplat = @{}
+        foreach ($filter in $Script:FilterList)
+        {
+            if ($PSBoundParameters[$filter]) { $filterSplat[$filter] = $PSBoundParameters[$filter] }
+        }
+
+        $whereSql, $parameters = Get-DBWhereSql @filterSplat
 
         $query = "DELETE FROM [$Schema].[$Table]$whereSql"
 
@@ -1136,7 +1161,13 @@ Function Set-DBRow
 
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
-        $whereSql, $parameters = Get-DBWhereSql
+        $filterSplat = @{}
+        foreach ($filter in $Script:FilterList)
+        {
+            if ($PSBoundParameters[$filter]) { $filterSplat[$filter] = $PSBoundParameters[$filter] }
+        }
+
+        $whereSql, $parameters = Get-DBWhereSql @filterSplat
         $hasFilter = @($parameters.GetEnumerator()).Count -gt 0
         $sqlNameRegex = [regex]"\A[A-Za-z0-9 _\-]+\Z"
 
