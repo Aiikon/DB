@@ -697,9 +697,8 @@ Function Get-DBWhereSql
                 {
                     $parameterDict["P$p"] = $value
                     $whereList.Add("$T[$col] $op2 @P$p")
+                    $p += 1
                 }
-
-                $p += 1
             }
         }
 
