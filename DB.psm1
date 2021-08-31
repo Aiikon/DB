@@ -863,8 +863,7 @@ Function Get-DBRow
         }
         catch { $PSCmdlet.ThrowTerminatingError($_) }
 
-        $columnList = [ordered]@{}
-        $columnList2 = @()
+        $groupColumnDict = [ordered]@{}
         $columnSql = '*'
         $joinSql = ''
 
@@ -879,7 +878,7 @@ Function Get-DBRow
                     $name = $Rename[$c]
                     if ($name -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Invalid Rename value: $name" }
                 }
-                $columnList.Add("T1.[$c]", "[$name]")
+                $groupColumnDict.Add("T1.[$c]", "[$name]")
             }
         }
 
@@ -933,10 +932,11 @@ Function Get-DBRow
 
                 foreach ($c in $joinColumn)
                 {
+                    if ($name -eq '*') { $groupColumnDict.Add("$rightTb.*", $null); continue }
                     $name = $c
                     if ($joinDef.Rename.$c) { $name = $joinDef.Rename.$c }
-                    if ($name -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Invalid Rename value: $name" }
-                    $columnList.Add("$rightTb.[$c]", "[$name]")
+                    if ($name -notmatch "\A[A-Za-z0-9 _\-]+\Z") { throw "Invalid Rename value: $name" }
+                    $groupColumnDict.Add("$rightTb.[$c]", "[$name]")
                 }
 
                 $filterSplat = @{}
@@ -969,10 +969,11 @@ Function Get-DBRow
         {
             trap { $PSCmdlet.ThrowTerminatingError($_) }
             if (!$Column) { throw "-Column must be specified if -Unique is specified." }
-            $groupSql = " GROUP BY $($columnList.Keys -join ',')"
+            $groupByNames = $groupColumnDict.GetEnumerator() | Where-Object Value | ForEach-Object Key
+            $groupSql = " GROUP BY $($groupByNames -join ', ')"
             if ($Count)
             {
-                $columnList2 += "COUNT(*) [Count]"
+                $groupColumnDict.Add("COUNT(*) [Count]", $null)
             }
             $mathList = foreach ($math in 'Sum', 'Min', 'Max')
             {
@@ -985,8 +986,8 @@ Function Get-DBRow
             {
                 foreach ($item in $mathGroup.Group)
                 {
-                    if ($mathGroup.Count -eq 1) { $columnList2 += "$($item.Math)(T1.$($item.Column)) [$($item.Column)]" }
-                    else { $columnList2 += "$($item.Math)(T1.$($item.Column)) [$($item.Column)$($item.Math)]" }
+                    if ($mathGroup.Count -eq 1) { $groupColumnDict.Add("$($item.Math)(T1.$($item.Column)) [$($item.Column)]", $null) }
+                    else { $groupColumnDict.Add("$($item.Math)(T1.$($item.Column)) [$($item.Column)$($item.Math)]", $null) }
                 }
             }
         }
@@ -997,9 +998,14 @@ Function Get-DBRow
             $orderSql = " ORDER BY $($(foreach ($c in $OrderBy) { "T1.[$c]" }) -join ',')"
         }
 
-        if ($columnList.Count)
+        if (@($groupColumnDict.GetEnumerator()).Count)
         {
-            $columnSql = @(@(foreach ($c in $columnList.Keys) { "$c $($columnList[$c])" }) + @($columnList2)) -join ', ' -replace "\[\*\]", "*"
+            $columnSql = @(
+                foreach ($pair in $groupColumnDict.GetEnumerator())
+                {
+                    if ($pair.Value) { "$($pair.Key) $($pair.Value)" } else { $pair.Key }
+                }
+            ) -join ', '
         }
 
         $query = "SELECT $columnSql FROM [$Schema].[$Table] T1 $joinSql$whereSql$groupSql$orderSql"
