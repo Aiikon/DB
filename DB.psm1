@@ -776,6 +776,7 @@ Function Define-DBJoin
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column,
         [Parameter()] [hashtable] $Rename,
         [Parameter()] [hashtable] $CastNullAsBit,
+        [Parameter()] [hashtable] $CountColumnAs,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
@@ -813,6 +814,7 @@ Function Define-DBJoin
         $definition.Column = $Column
         $definition.Rename = $Rename
         $definition.CastNullAsBit = $CastNullAsBit
+        $definition.CountColumnAs = $CountColumnAs
         foreach ($filter in $Script:FilterList)
         {
             $definition.$filter = $PSBoundParameters[$filter]
@@ -912,7 +914,10 @@ Function Get-DBRow
                 $leftTb = $joinTableDict["[$leftSchema].[$leftTable]"]
                 if (!$leftTb) { throw "[$leftSchema].[$leftTable] isn't an available table for joining on the left." }
                 $rightTb = "T$t"
-                $joinTableDict["[$rightSchema].[$rightTable]"] = $rightTb
+                if (!$joinTableDict["[$rightSchema].[$rightTable]"]) # Don't overwrite previous T0 shorthand
+                {
+                    $joinTableDict["[$rightSchema].[$rightTable]"] = $rightTb
+                }
                 $type = $joinDef.Type.ToUpper().Replace('FULLOUTER', 'FULL OUTER')
 
                 $onList = for ($i = 0; $i -lt $leftKey.Count; $i++)
@@ -944,12 +949,20 @@ Function Get-DBRow
                     $groupColumnDict.Add("$rightTb.[$c]", "[$name]")
                 }
 
-                if ($joinDef.CastNullAsBit) { foreach ($cast in $joinDef.CastNullAsBit.GetEnumerator()) {
-                    $col = $cast.Key
+                if ($joinDef.CastNullAsBit) { foreach ($pair in $joinDef.CastNullAsBit.GetEnumerator()) {
+                    $col = $pair.Key
                     if (!$Script:ColumnNameRegex.IsMatch($col)) { throw "Invalid CastNullAsBit column: $col" }
-                    $as = $cast.Value
+                    $as = $pair.Value
                     if (!$Script:ColumnNameRegex.IsMatch($as)) { throw "Invalid CastNullAsBit label: $as" }
                     $groupColumnDict.Add("CAST(IIF($rightTb.[$col] IS NULL, 0, 1) AS bit) [$as]", $null)
+                } }
+
+                if ($joinDef.CountColumnAs) { foreach ($pair in $joinDef.CountColumnAs.GetEnumerator()) {
+                    $col = $pair.Key
+                    if (!$Script:ColumnNameRegex.IsMatch($col)) { throw "Invalid CountColumnAs column: $col" }
+                    $as = $pair.Value
+                    if (!$Script:ColumnNameRegex.IsMatch($as)) { throw "Invalid CountColumnAs label: $as" }
+                    $groupColumnDict.Add("COUNT($rightTb.[$col]) [$as]", $null)
                 } }
 
                 $filterSplat = @{}

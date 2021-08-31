@@ -3,6 +3,8 @@ Import-Module $PSScriptRoot -Force -DisableNameChecking
 Describe 'DB Module' {
     Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
     
+    Function CleanQuery($Query) { $Query.Trim() -replace "[`r`n ]+", " " }
+
     Get-DBTable DBTest -TableType Table |
         ForEach-Object { Remove-DBTable DBTest -Schema $_.Schema -Table $_.Table -Confirm:$false }
 
@@ -143,6 +145,10 @@ Describe 'DB Module' {
             Define-DBColumn ClusterType nvarchar
         }
 
+        New-DBTable DBTest -Table ClusterType -Definition {
+            Define-DBColumn ClusterType nvarchar -Required -Length 32 -PrimaryKey
+        }
+
         It 'Add-DBRow' {
 
             "ClusterId,ClusterName,ClusterType
@@ -157,6 +163,8 @@ Describe 'DB Module' {
             $rowList[0].ClusterId | Should Be 1
             $rowList[0].ClusterName | Should Be SQL001
             $rowList[0].ClusterType | Should Be SQL
+
+            "ClusterType", "File", "SQL", "Service" | ConvertFrom-Csv | Add-DBRow DBTest -Table ClusterType
         }
 
         It 'Get-DBRow' {
@@ -371,6 +379,50 @@ Describe 'DB Module' {
             $hadException | Should Be $true
         }
 
+        It "Joins supports -CountColumnAs (Syntax Check)" {
+            $query = Get-DBRow DBTest -Table SourceA -Column ColA -Unique -DebugOnly -Joins {
+                Define-DBJoin -RightTable JoinB -RightKey ColA -CountColumnAs @{CountThis='AsThat'}
+            }
+
+            $query.Query | Should Be (CleanQuery "
+                SELECT T1.[ColA] [ColA], COUNT(T2.[CountThis]) [AsThat]
+                FROM [Tests].[SourceA] T1
+                    LEFT JOIN [Tests].[JoinB] T2 ON T1.[ColA] = T2.[ColA]
+                GROUP BY T1.[ColA]
+            ")
+        }
+
+        It "Joins supports -CountColumnAs (Reality Check)" {
+            $result = Get-DBRow DBTest -Table ClusterType -Column ClusterType -Unique -Joins {
+                Define-DBJoin -RightTable Cluster -RightKey ClusterType -CountColumnAs @{ClusterName='Clusters'}
+            }
+
+            $result | Where-Object ClusterType -eq SQL | ForEach-Object Clusters | Should Be 3
+            $result | Where-Object ClusterType -eq File | ForEach-Object Clusters | Should Be 2
+            $result | Where-Object ClusterType -eq Service | ForEach-Object Clusters | Should Be 0
+        }
+
+        It "Joins supports -CastNullAsBit (Syntax Check)" {
+            $query = Get-DBRow DBTest -Table SourceA -Column ColA -DebugOnly -Joins {
+                Define-DBJoin -RightTable JoinB -RightKey ColA -CastNullAsBit @{NullableColumn='AsBitName'}
+            }
+
+            $query.Query | Should Be (CleanQuery "
+                SELECT T1.[ColA] [ColA], CAST(IIF(T2.[NullableColumn] IS NULL, 0, 1) AS bit) [AsBitName]
+                FROM [Tests].[SourceA] T1
+                    LEFT JOIN [Tests].[JoinB] T2 ON T1.[ColA] = T2.[ColA]
+            ")
+        }
+
+        It "Join supports -CastNullAsBit (Reality Check)" {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName, ClusterType -Joins {
+                Define-DBJoin DBTest -RightTable Cluster -RightKey ClusterId -JoinFilterEq @{ClusterType='SQL'} -CastNullAsBit @{ClusterId='IsSql'}
+            }
+
+            $data | Where-Object ClusterType -eq SQL | ForEach-Object IsSql | Should Be $true
+            $data | Where-Object ClusterType -ne SQL | ForEach-Object IsSql | Should Be $false
+        }
+
         It 'Get-DBRow -Unique -Count -Min -Max -OrderBy -Joins (No Exception Only)' {
             # Must make sure it doesn't throw an exception
             $data = Get-DBRow DBTest -Table Cluster -Column ClusterType, ClusterName -Unique -Count -Min ClusterId -Max ClusterId -Sum ClusterId -OrderBy ClusterName -Joins {
@@ -383,7 +435,7 @@ Describe 'DB Module' {
 
     Context 'Define-DBJoin with -JoinFilter*' {
         It 'Get-DBRow Join with JoinFilterEq' {
-            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Verbose -Joins {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Joins {
                 Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -JoinFilterEq @{ClusterType='SQL'}
             }
 
@@ -393,7 +445,7 @@ Describe 'DB Module' {
         }
 
         It 'Get-DBRow Join with JoinFilterNe' {
-            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Verbose -Joins {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Joins {
                 Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -JoinFilterNe @{ClusterType='SQL'}
             }
 
@@ -403,7 +455,7 @@ Describe 'DB Module' {
         }
 
         It 'Get-DBRow Join with JoinFilterExists' {
-            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Verbose -Joins {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Joins {
                 Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -JoinFilterExists ([pscustomobject]@{ClusterName='SQL001';ClusterType='SQL'})
             }
 
@@ -414,7 +466,7 @@ Describe 'DB Module' {
         }
 
         It 'Get-DBRow Join with Filter + JoinFilterEq' {
-            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -FilterGt @{ClusterId=1} -Verbose -Joins {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -FilterGt @{ClusterId=1} -Joins {
                 Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType -JoinFilterEq @{ClusterType='SQL'}
             }
 
