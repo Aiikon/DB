@@ -1008,7 +1008,7 @@ Function Get-DBRow
             ) -join ', '
         }
 
-        $query = "SELECT $columnSql FROM [$Schema].[$Table] T1 $joinSql$whereSql$groupSql$orderSql"
+        $query = "SELECT $columnSql FROM [$Schema].[$Table] T1$joinSql$whereSql$groupSql$orderSql"
 
         Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters -Timeout $Timeout
     }
