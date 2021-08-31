@@ -413,7 +413,8 @@ Function New-DBTable
         [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
-        [Parameter(Mandatory=$true)] [scriptblock] $Definition
+        [Parameter(Mandatory=$true)] [scriptblock] $Definition,
+        [Parameter()] [switch] $DebugOnly
     )
     End
     {
@@ -487,6 +488,8 @@ Function New-DBTable
 
         $tableSql.Add($definitionSqlList -join ",`r`n")
         $tableSql.Add(")")
+
+        if ($DebugOnly) { return [pscustomobject]@{Query=$tableSql -join "`r`n"; Parameters=@{}} }
 
         Invoke-DBQuery $Connection ($tableSql -join "`r`n") -Mode NonQuery | Out-Null
     }
