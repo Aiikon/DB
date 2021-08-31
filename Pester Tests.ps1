@@ -664,6 +664,25 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Edge Cases' {
+        
+        It 'Uses the right table abbreviations when self-joining' {
+            # If we join to ourselves we need to not overwrite out shorthand table
+            # or it will cause issues with other joins
+
+            $query = Get-DBRow DBTest -Table Me -Column Me1 -DebugOnly -Joins {
+                Define-DBJoin -RightTable Me -RightKey KeyCol1 -Column Me2
+                Define-DBJoin -RightTable Other -RightKey KeyCol2 -Column Other1
+            }
+
+            $query.Query | Should Be (CleanQuery "
+                SELECT T1.[Me1] [Me1], T2.[Me2] [Me2], T3.[Other1] [Other1]
+                FROM [Tests].[Me] T1
+                    LEFT JOIN [Tests].[Me] T2 ON T1.[KeyCol1] = T2.[KeyCol1]
+                    LEFT JOIN [Tests].[Other] T3 ON T1.[KeyCol2] = T3.[KeyCol2]
+            ")
+        }
+    }
 
 }
 

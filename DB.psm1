@@ -1450,6 +1450,11 @@ Function Update-DBColumn
         if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Column", 'Alter Column'))
         {
             Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ALTER COLUMN $columnSql"
+            if ($Default)
+            {
+                if ($Type -match "char|time") { $Default = "'$Default'" }
+                Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ADD CONSTRAINT [DF_${Schema}_${Table}_${Column}] DEFAULT $Default FOR [$Column]"
+            }
         }
     }
 }
