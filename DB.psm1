@@ -1307,6 +1307,8 @@ Function Get-DBColumn
     )
     End
     {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
         
         $filterSqlList = @()
