@@ -5,6 +5,8 @@ if (!$Global:ModuleConfig_ed9ef8e030674a34b39023c2c60d80b5.Connections)
 }
 $Script:ModuleConfig = $Global:ModuleConfig_ed9ef8e030674a34b39023c2c60d80b5
 
+$Script:ColumnNameRegex = [regex]"\A[A-Za-z0-9 _\-]+\Z"
+
 Function Initialize-DBConnectionToLocalDB
 {
     Param
@@ -773,6 +775,7 @@ Function Define-DBJoin
         [Parameter()] [ValidateSet('Left', 'Inner', 'Right', 'FullOuter')] [string] $Type = 'Left',
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column,
         [Parameter()] [hashtable] $Rename,
+        [Parameter()] [hashtable] $CastNullAsBit,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
@@ -809,6 +812,7 @@ Function Define-DBJoin
         $definition.Type = $Type
         $definition.Column = $Column
         $definition.Rename = $Rename
+        $definition.CastNullAsBit = $CastNullAsBit
         foreach ($filter in $Script:FilterList)
         {
             $definition.$filter = $PSBoundParameters[$filter]
@@ -939,6 +943,14 @@ Function Get-DBRow
                     if ($name -notmatch "\A[A-Za-z0-9 _\-]+\Z") { throw "Invalid Rename value: $name" }
                     $groupColumnDict.Add("$rightTb.[$c]", "[$name]")
                 }
+
+                if ($joinDef.CastNullAsBit) { foreach ($cast in $joinDef.CastNullAsBit.GetEnumerator()) {
+                    $col = $cast.Key
+                    if (!$Script:ColumnNameRegex.IsMatch($col)) { throw "Invalid CastNullAsBit column: $col" }
+                    $as = $cast.Value
+                    if (!$Script:ColumnNameRegex.IsMatch($as)) { throw "Invalid CastNullAsBit label: $as" }
+                    $groupColumnDict.Add("CAST(IIF($rightTb.[$col] IS NULL, 0, 1) AS bit) [$as]", $null)
+                } }
 
                 $filterSplat = @{}
                 foreach ($filter in $Script:FilterList)
