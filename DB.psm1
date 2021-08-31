@@ -763,6 +763,7 @@ Function Define-DBJoin
     [CmdletBinding(PositionalBinding=$false)]
     Param
     (
+        [Parameter(Position=0)] [object] $Connection,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftSchema,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftTable,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $LeftKey,
