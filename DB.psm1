@@ -836,6 +836,7 @@ Function Get-DBRow
         [Parameter()] [hashtable] $Rename,
         [Parameter()] [scriptblock] $Joins,
         [Parameter()] [Nullable[int]] $Timeout,
+        [Parameter()] [switch] $DebugOnly,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
         [Parameter()] [hashtable] $FilterGt,
@@ -1009,6 +1010,8 @@ Function Get-DBRow
         }
 
         $query = "SELECT $columnSql FROM [$Schema].[$Table] T1$joinSql$whereSql$groupSql$orderSql"
+
+        if ($DebugOnly) { return [pscustomobject]@{Query=$query; Parameters=$parameters} }
 
         Invoke-DBQuery $Connection $query -Mode Reader -Parameters $parameters -Timeout $Timeout
     }
