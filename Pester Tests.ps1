@@ -488,6 +488,7 @@ Describe 'DB Module' {
         }
 
         It "Add-DBRow regular mode handles the full suite" {
+            # This currently fails
             [pscustomobject]@{Key=2} | Add-DBRow DBTest -Table DefaultNew
 
             $result = Get-DBRow DBTest -Table DefaultNew -FilterEq @{Key=2}

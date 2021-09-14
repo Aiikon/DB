@@ -1922,7 +1922,7 @@ Function New-DBAuditTable
         $primaryKeyList = Get-DBPrimaryKey $Connection -Schema $Schema -Table $Table -AsStringArray
         $columnList = Get-DBColumn $Connection -Schema $Schema -Table $Table
 
-        if (!$AuditBefore) { $AuditBefore  = @($columnList.Column) }
+        if (!$AuditBefore) { $AuditBefore = @($columnList.Column) }
         $AuditBefore = @($(foreach ($c in $AuditBefore) { if ($c -notin $primaryKeyList) { $c } }))
         $AuditAfter = @()
         if ($IncludeAfter) { $AuditAfter = $AuditBefore } # Simplifies foreach loops
