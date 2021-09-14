@@ -450,7 +450,7 @@ Function New-DBTable
         foreach ($columnDefinition in $columnDefinitionList)
         {
             $columnName = $columnDefinition.Name
-            $columnSql = "    " + (Get-DBColumnSql $columnDefinition.Name $columnDefinition.Type -Length $columnDefinition.Length -Required:$columnDefinition.Required)
+            $columnSql = "    " + (Get-DBColumnSql $columnDefinition.Name $columnDefinition.Type -Length $columnDefinition.Length -Required:$columnDefinition.Required -Default $columnDefinition.Default -HasDefault $columnDefinition.HasDefault)
             $definitionSqlList.Add($columnSql)
             if ($columnDefinition.Unique)
             {
@@ -1078,10 +1078,19 @@ Function Add-DBRow
         $tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
 
         $unexpected = @{}
+        $removedUnused = $false
     }
     Process
     {
         if (!$InputObject) { return }
+        if (!$removedUnused)
+        {
+            $removedUnused = $true
+            foreach ($column in @($dataTable.Columns))
+            {
+                if (!$InputObject.PSObject.Properties[$column.ColumnName]) { $dataTable.Columns.Remove($column) }
+            }
+        }
         $newRow = $dataTable.NewRow()
         foreach ($property in $InputObject.PSObject.Properties)
         {
@@ -1288,7 +1297,9 @@ Function Get-DBColumnSql
         [Parameter(Mandatory=$true,Position=0)] [string] $Column,
         [Parameter(Mandatory=$true,Position=1)] [string] $Type,
         [Parameter()] [int] $Length,
-        [Parameter()] [switch] $Required
+        [Parameter()] [switch] $Required,
+        [Parameter()] [string] $Default,
+        [Parameter()] [bool] $HasDefault
     )
     End
     {
@@ -1303,6 +1314,11 @@ Function Get-DBColumnSql
         }
         if ($Required) { $columnSql += " NOT NULL" }
         else { $columnSql += " NULL" }
+        if ($HasDefault)
+        {
+            if ($Type -match 'char|time') { $Default = "'$Default'" }
+            $columnSql += " DEFAULT $Default"
+        }
         $columnSql
     }
 }
@@ -1389,14 +1405,19 @@ Function New-DBColumn
             'datetime', 'date', 'time',
             'ntext', 'varbinary', 'uniqueidentifier')] [string] $Type,
         [Parameter()] [int] $Length,
-        [Parameter()] [switch] $Required
+        [Parameter()] [switch] $Required,
+        [Parameter()] [string] $Default,
+        [Parameter()] [switch] $DebugOnly
     )
     End
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        $columnSql = Get-DBColumnSql $Column $Type -Length $Length -Required:$Required
+        $columnSql = Get-DBColumnSql $Column $Type -Length $Length -Required:$Required -Default $Default -HasDefault $PSBoundParameters.ContainsKey('Default')
+        $finalSql = "ALTER TABLE [$Schema].[$Table] ADD $columnSql"
 
-        Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ADD $columnSql"
+        if ($DebugOnly) { return [pscustomobject]@{Query=$finalSql; Parameters=@{}} }
+
+        Invoke-DBQuery $Connection $finalSql
     }
 }
 
@@ -1452,20 +1473,30 @@ Function Update-DBColumn
             'datetime', 'date', 'time',
             'ntext', 'varbinary', 'uniqueidentifier')] [string] $Type,
         [Parameter()] [int] $Length,
-        [Parameter()] [switch] $Required
+        [Parameter()] [switch] $Required,
+        [Parameter()] [string] $Default,
+        [Parameter()] [switch] $DebugOnly
     )
     End
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
         $columnSql = Get-DBColumnSql $Column $Type -Length $Length -Required:$Required
+
+        $query = [System.Text.StringBuilder]::new()
+
+        [void]$query.Append("BEGIN ALTER TABLE [$Schema].[$Table] ALTER COLUMN $columnSql;")
+
+        if ($PSBoundParameters.ContainsKey('Default'))
+        {
+            if ($Type -match "char|time") { $Default = "'$Default'" }
+            [void]$query.Append(" ALTER TABLE [$Schema].[$Table] ADD CONSTRAINT [DF_${Schema}_${Table}_${Column}] DEFAULT $Default FOR [$Column];")
+        }
+        [void]$query.Append(' END;')
+
         if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Column", 'Alter Column'))
         {
-            Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ALTER COLUMN $columnSql"
-            if ($Default)
-            {
-                if ($Type -match "char|time") { $Default = "'$Default'" }
-                Invoke-DBQuery $Connection "ALTER TABLE [$Schema].[$Table] ADD CONSTRAINT [DF_${Schema}_${Table}_${Column}] DEFAULT $Default FOR [$Column]"
-            }
+            if ($DebugOnly) { [pscustomobject]@{Query=$query.ToString(); Parameters=@{}} }
+            else { Invoke-DBQuery $Connection $query.ToString() }
         }
     }
 }
@@ -1483,6 +1514,7 @@ Function Define-DBColumn
         [Parameter(Position=2)] [int] $Length,
         [Parameter()] [switch] $Required,
         [Parameter()] [switch] $PrimaryKey,
+        [Parameter()] [string] $Default,
         [Parameter()] [switch] $Index,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $IndexName,
         [Parameter()] [switch] $Unique,
@@ -1500,6 +1532,8 @@ Function Define-DBColumn
         $definition.Length = $Length
         $definition.Required = $Required.IsPresent
         $definition.PrimaryKey = $PrimaryKey.IsPresent
+        $definition.HasDefault = $PSBoundParameters.ContainsKey('Default')
+        $definition.Default = $Default
         $definition.Index = $Index.IsPresent
         $definition.IndexName = $IndexName
         $definition.Unique = $Unique.IsPresent

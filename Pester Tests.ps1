@@ -448,6 +448,155 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Default Column Value' {
+        
+        It "Functions in New-DBTable > Define-DBColumn (Syntax Validation)" {
+            $query = New-DBTable DBTest -Table DefaultNew -DebugOnly -Definition {
+                Define-DBColumn Key int -Required -PrimaryKey
+                Define-DBColumn Default_nvarchar -Type nvarchar -Default abc
+                Define-DBColumn Default_int -Type int -Default 99
+                Define-DBColumn Default_nvarchar_empty -Type nvarchar -Required -Default ''
+            }
+
+            $query.Query -replace "[`r`n ]+", " " | Should Be (CleanQuery "
+                CREATE TABLE [Tests].[DefaultNew]
+                (
+                    [Key] int NOT NULL,
+                    [Default_nvarchar] nvarchar(MAX) NULL DEFAULT 'abc',
+                    [Default_int] int NULL DEFAULT 99,
+                    [Default_nvarchar_empty] nvarchar(MAX) NOT NULL DEFAULT '',
+                    CONSTRAINT [PK_DefaultNew] PRIMARY KEY ([Key])
+                )
+            ")
+        }
+
+        It "Functions in New-DBTable > Define-DBColumn (Reality Check)" {
+            New-DBTable DBTest -Table DefaultNew -Definition {
+                Define-DBColumn Key int -Required -PrimaryKey
+                Define-DBColumn Default_nvarchar -Type nvarchar -Default abc
+                Define-DBColumn Default_int -Type int -Default 99
+                Define-DBColumn Default_nvarchar_empty -Type nvarchar -Required -Default ''
+            }
+
+            Invoke-DBQuery DBTest "INSERT INTO Tests.DefaultNew ([Key]) VALUES (1)"
+
+            $result = Get-DBRow DBTest -Table DefaultNew -FilterEq @{Key=1}
+            $result.Key | Should Be 1
+            $result.Default_nvarchar | Should Be 'abc'
+            $result.Default_int | Should Be 99
+            $result.Default_nvarchar_empty | Should Be ''
+        }
+
+        It "Add-DBRow regular mode handles the full suite" {
+            [pscustomobject]@{Key=2} | Add-DBRow DBTest -Table DefaultNew
+
+            $result = Get-DBRow DBTest -Table DefaultNew -FilterEq @{Key=2}
+            $result.Key | Should Be 2
+            $result.Default_nvarchar | Should Be 'abc'
+            $result.Default_int | Should Be 99
+            $result.Default_nvarchar_empty | Should Be ''
+        }
+
+        It "Add-DBRow BulkCopy mode handles the full suite" {
+            [pscustomobject]@{Key=3} | Add-DBRow DBTest -Table DefaultNew -BulkCopy
+
+            $result = Get-DBRow DBTest -Table DefaultNew -FilterEq @{Key=3}
+            $result.Key | Should Be 3
+            $result.Default_nvarchar | Should Be 'abc'
+            $result.Default_int | Should Be 99
+            $result.Default_nvarchar_empty | Should Be ''
+        }
+
+        It "New-DBColumn handles all cases (Syntax Validation)" {
+            $query1 = New-DBColumn DBTest -Table Table1 -Column Default_nvarchar -Type nvarchar -Default 'abc' -DebugOnly
+            $query1.Query | Should Be "ALTER TABLE [Tests].[Table1] ADD [Default_nvarchar] nvarchar(MAX) NULL DEFAULT 'abc'"
+            
+            $query2 = New-DBColumn DBTest -Table Table1 -Column Default_int -Type int -Default 99 -DebugOnly
+            $query2.Query | Should Be "ALTER TABLE [Tests].[Table1] ADD [Default_int] int NULL DEFAULT 99"
+            
+            $query3 = New-DBColumn DBTest -Table Table1 -Column Default_nvarchar_empty -Type nvarchar -Required -Default '' -DebugOnly
+            $query3.Query | Should Be "ALTER TABLE [Tests].[Table1] ADD [Default_nvarchar_empty] nvarchar(MAX) NOT NULL DEFAULT ''"
+        }
+
+        It "New-DBColumn handles all cases (Reality Check)" {
+            
+            New-DBTable DBTest -Table DefaultAdd -Definition {
+                Define-DBColumn Key int -Required -PrimaryKey
+            }
+
+            Invoke-DBQuery DBTest "INSERT INTO Tests.DefaultAdd ([Key]) VALUES (1)"
+
+            New-DBColumn DBTest -Table DefaultAdd -Column Default_nvarchar -Type nvarchar -Default 'abc'
+            New-DBColumn DBTest -Table DefaultAdd -Column Default_int -Type int -Default 99
+            New-DBColumn DBTest -Table DefaultAdd -Column Default_nvarchar_empty -Type nvarchar -Required -Default ''
+
+            Invoke-DBQuery DBTest "INSERT INTO Tests.DefaultAdd ([Key]) VALUES (2)"
+
+            $result1 = Get-DBRow DBTest -Table DefaultAdd -FilterEq @{Key=1}
+            $result1.Default_nvarchar | Should Be $null
+            $result1.Default_int | Should Be $null
+            $result1.Default_nvarchar_empty | Should Be ''
+
+            $result2 = Get-DBRow DBTest -Table DefaultAdd -FilterEq @{Key=2}
+            $result2.Default_nvarchar | Should Be 'abc'
+            $result2.Default_int | Should Be 99
+            $result2.Default_nvarchar_empty | Should Be ''
+        }
+
+        It "Update-DBColumn handles all cases (Syntax Validation)" {
+            $query1 = Update-DBColumn DBTest -Table Table1 -Column Default_nvarchar -Type nvarchar -Default 'abc' -DebugOnly
+            $query1.Query | Should Be (CleanQuery "
+                BEGIN
+                ALTER TABLE [Tests].[Table1] ALTER COLUMN [Default_nvarchar] nvarchar(MAX) NULL;
+                ALTER TABLE [Tests].[Table1] ADD CONSTRAINT [DF_Tests_Table1_Default_nvarchar] DEFAULT 'abc' FOR [Default_nvarchar];
+                END;
+            ")
+            
+            $query2 = Update-DBColumn DBTest -Table Table1 -Column Default_int -Type int -Default 99 -DebugOnly
+            $query2.Query | Should Be (CleanQuery "
+                BEGIN
+                ALTER TABLE [Tests].[Table1] ALTER COLUMN [Default_int] int NULL;
+                ALTER TABLE [Tests].[Table1] ADD CONSTRAINT [DF_Tests_Table1_Default_int] DEFAULT 99 FOR [Default_int];
+                END;
+            ")
+
+            $query3 = Update-DBColumn DBTest -Table Table1 -Column Default_nvarchar_empty -Type nvarchar -Required -Default '' -DebugOnly
+            $query3.Query | Should Be (CleanQuery "
+                BEGIN
+                ALTER TABLE [Tests].[Table1] ALTER COLUMN [Default_nvarchar_empty] nvarchar(MAX) NOT NULL;
+                ALTER TABLE [Tests].[Table1] ADD CONSTRAINT [DF_Tests_Table1_Default_nvarchar_empty] DEFAULT '' FOR [Default_nvarchar_empty];
+                END;
+            ")
+        }
+
+        It "Update-DBColumn handles all cases (Reality Check)" {
+            New-DBTable DBTest -Table DefaultUpdate -Definition {
+                Define-DBColumn Key int -Required -PrimaryKey
+                Define-DBColumn Default_nvarchar -Type nvarchar
+                Define-DBColumn Default_int -Type int
+                Define-DBColumn Default_nvarchar_empty -Type nvarchar
+            }
+
+            # We have to provide a value for Default_nvarchar_empty since the DEFAULT update happens after the column is made NOT NULL
+            Invoke-DBQuery DBTest "INSERT INTO Tests.DefaultUpdate ([Key], Default_nvarchar_empty) VALUES (31, '')"
+
+            Update-DBColumn DBTest -Table DefaultUpdate -Column Default_nvarchar -Type nvarchar -Default 'abc'
+            Update-DBColumn DBTest -Table DefaultUpdate -Column Default_int -Type int -Default 99
+            Update-DBColumn DBTest -Table DefaultUpdate -Column Default_nvarchar_empty -Type nvarchar -Required -Default ''
+
+            Invoke-DBQuery DBTest "INSERT INTO Tests.DefaultUpdate ([Key]) VALUES (32)"
+
+            $result1 = Get-DBRow DBTest -Table DefaultUpdate -FilterEq @{Key=31}
+            $result1.Default_nvarchar | Should Be $null
+            $result1.Default_int | Should Be $null
+            $result1.Default_nvarchar_empty | Should Be ''
+
+            $result2 = Get-DBRow DBTest -Table DefaultUpdate -FilterEq @{Key=32}
+            $result2.Default_nvarchar | Should Be 'abc'
+            $result2.Default_int | Should Be 99
+            $result2.Default_nvarchar_empty | Should Be ''
+        }
+    }
 
     Context 'Define-DBJoin with -JoinFilter*' {
         It 'Get-DBRow Join with JoinFilterEq' {
