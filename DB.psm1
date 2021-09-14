@@ -50,13 +50,14 @@ Function Initialize-DBConnectionToLocalDB
         $connectionObject.ConnectionString = $connectionString
         $connectionObject.Open()
 
-        $connection = 1 | Select-Object Name, Type, DefaultSchema, ConnectionObject, Transaction
+        $connection = [ordered]@{}
         $connection.Name = $ConnectionName
-        $Connection.Type = "LocalDB"
+        $connection.Type = "LocalDB"
         $connection.DefaultSchema = $DefaultSchema
         $connection.ConnectionObject = $connectionObject
+        $connection.Transaction = $null
 
-        $Script:ModuleConfig.Connections[$ConnectionName] = $connection
+        $Script:ModuleConfig.Connections[$ConnectionName] = [pscustomobject]$connection
     }
 }
 
@@ -83,14 +84,15 @@ Function Initialize-DBConnectionToSqlDB
         $datab = if ($Database) { ";Database=$Database" }
         $connectionString = "Server=$Server$inst$datab;Trusted_Connection=true;Integrated Security=true;"
         $connectionObject = New-Object System.Data.SqlClient.SqlConnection
-        $connectionObject.ConnectionString = $connectionString
+        $connectionObject.ConnectionString = [pscustomobject]$connectionString
         $connectionObject.Open()
 
-        $connection = 1 | Microsoft.PowerShell.Utility\Select-Object Name, Type, DefaultSchema, ConnectionObject, Transaction
+        $connection = [ordered]@{}
         $connection.Name = $ConnectionName
-        $Connection.Type = "SqlDB"
+        $connection.Type = "SqlDB"
         $connection.DefaultSchema = $DefaultSchema
         $connection.ConnectionObject = $connectionObject
+        $connection.Transaction = $null
 
         $Script:ModuleConfig.Connections[$ConnectionName] = $connection
     }
