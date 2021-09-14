@@ -840,6 +840,7 @@ Function Get-DBRow
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter()] [switch] $Unique,
         [Parameter()] [switch] $Count,
+        [Parameter()] [int] $Top,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Sum,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Min,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Max,
@@ -1022,6 +1023,12 @@ Function Get-DBRow
             }
         }
         
+        $topSql = ''
+        if ($Top)
+        {
+            $topSql = "TOP $Top "
+        }
+
         $orderSql = ''
         if ($OrderBy)
         {
@@ -1038,7 +1045,7 @@ Function Get-DBRow
             ) -join ', '
         }
 
-        $query = "SELECT $columnSql FROM [$Schema].[$Table] T1$joinSql$whereSql$groupSql$orderSql"
+        $query = "SELECT $topSql$columnSql FROM [$Schema].[$Table] T1$joinSql$whereSql$groupSql$orderSql"
 
         if ($DebugOnly) { return [pscustomobject]@{Query=$query; Parameters=$parameters} }
 

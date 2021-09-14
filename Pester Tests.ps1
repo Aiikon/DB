@@ -423,6 +423,22 @@ Describe 'DB Module' {
             $data | Where-Object ClusterType -ne SQL | ForEach-Object IsSql | Should Be $false
         }
 
+        It 'Supports Top (Syntax Check)' {
+            $query = Get-DBRow DBTest -Table SourceA -Column ColA -OrderBy ColB -Top 2 -DebugOnly
+            $query.Query | Should Be (CleanQuery "
+                SELECT TOP 2 T1.[ColA] [ColA]
+                FROM [Tests].[SourceA] T1
+                ORDER BY T1.[ColB]
+            ")
+        }
+
+        It 'Supports Top (Reality Check)' {
+            $data = Get-DBRow DBTest -Table Cluster -Column ClusterId, ClusterName -OrderBy ClusterName -Top 2
+            @($data).Count | Should Be 2
+            $data[0].ClusterName | Should Be 'CAFile'
+            $data[1].ClusterName | Should Be 'SQL001'
+        }
+
         It 'Get-DBRow -Unique -Count -Min -Max -OrderBy -Joins (No Exception Only)' {
             # Must make sure it doesn't throw an exception
             $data = Get-DBRow DBTest -Table Cluster -Column ClusterType, ClusterName -Unique -Count -Min ClusterId -Max ClusterId -Sum ClusterId -OrderBy ClusterName -Joins {
