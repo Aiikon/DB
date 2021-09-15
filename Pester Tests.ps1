@@ -848,6 +848,16 @@ Describe 'DB Module' {
                     LEFT JOIN [Tests].[Other] T3 ON T1.[KeyCol2] = T3.[KeyCol2]
             ")
         }
+
+        It "Add-DBRow with a timespan column needs whitespace changed to null" {
+            New-DBTable DBTest -Table TimespanWhitespace -Definition {
+                Define-DBColumn Key int -Required -PrimaryKey
+                Define-DBColumn Span time
+            }
+
+            [pscustomobject]@{Key=1; Span=[TimeSpan]::FromSeconds(1)} | Add-DBRow DBTest -Table TimespanWhitespace
+            [pscustomobject]@{Key=2; Span=""} | Add-DBRow DBTest -Table TimespanWhitespace
+        }
     }
 
 }

@@ -1076,6 +1076,8 @@ Function Add-DBRow
         $tableAdapter = New-Object System.Data.SqlClient.SqlDataAdapter $selectCommand
         $commandBuilder = New-Object System.Data.SqlClient.SqlCommandBuilder $tableAdapter
         $tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
+        
+        $whitespaceMustBeNull = @{}
 
         $unexpected = @{}
         $removedUnused = $false
@@ -1097,7 +1099,7 @@ Function Add-DBRow
             $propertyName = $property.Name
             if ([System.DBNull]::Value.Equals($newRow[$propertyName]))
             {
-                if ($null -ne $property.Value)
+                if ($null -ne $property.Value -and -not ($whitespaceMustBeNull[$propertyName] -and $property.Value -eq ''))
                 {
                     $newRow[$propertyName] = $property.Value
                 }
