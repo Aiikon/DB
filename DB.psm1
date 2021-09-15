@@ -1078,6 +1078,10 @@ Function Add-DBRow
         $tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
         
         $whitespaceMustBeNull = @{}
+        foreach ($column in $dataTable.Columns)
+        {
+            if ($column.DataType -eq [System.TimeSpan]) { $whitespaceMustBeNull[$column.ColumnName] = $true }
+        }
 
         $unexpected = @{}
         $removedUnused = $false
@@ -1090,6 +1094,7 @@ Function Add-DBRow
             $removedUnused = $true
             foreach ($column in @($dataTable.Columns))
             {
+                if ($column.ColumnName -in $dataTable.PrimaryKey.ColumnName) { continue }
                 if (!$InputObject.PSObject.Properties[$column.ColumnName]) { $dataTable.Columns.Remove($column) }
             }
         }
@@ -1135,6 +1140,8 @@ Function Add-DBRow
             else
             {
                 if ($Timeout -ne $null) { throw "Timeout is not yet implemented." }
+                $colList = foreach ($column in $dataTable.Columns) { "[$($column.ColumnName)]" } # Rebuild from columns that remain in the datatable
+                $tableAdapter.SelectCommand.CommandText = "SELECT $($colList -join ', ') FROM [$Schema].[$Table]"
                 [void]$tableAdapter.Fill($dataTable)
                 [void]$tableAdapter.Update($dataTable)
             }
