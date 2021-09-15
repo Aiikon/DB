@@ -94,7 +94,7 @@ Function Initialize-DBConnectionToSqlDB
         $connection.ConnectionObject = $connectionObject
         $connection.Transaction = $null
 
-        $Script:ModuleConfig.Connections[$ConnectionName] = $connection
+        $Script:ModuleConfig.Connections[$ConnectionName] = [pscustomobject]$connection
     }
 }
 
@@ -769,7 +769,7 @@ Function Define-DBJoin
     [CmdletBinding(PositionalBinding=$false)]
     Param
     (
-        [Parameter(Position=0)] [object] $Connection,
+        [Parameter(Position=0)] [string] $Connection,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftSchema,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $LeftTable,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $LeftKey,
@@ -881,7 +881,6 @@ Function Get-DBRow
 
         if ($Column -or $Joins)
         {
-            if (!$Column) { $Column = '*' }
             foreach ($c in $Column)
             {
                 $name = $c
@@ -892,6 +891,7 @@ Function Get-DBRow
                 }
                 $groupColumnDict.Add("T1.[$c]", "[$name]")
             }
+            if (!$Column) { $groupColumnDict.Add("T1.*", $null) }
         }
 
         if ($Joins)
@@ -947,7 +947,7 @@ Function Get-DBRow
 
                 foreach ($c in $joinColumn)
                 {
-                    if ($name -eq '*') { $groupColumnDict.Add("$rightTb.*", $null); continue }
+                    if ($c -eq '*') { $groupColumnDict.Add("$rightTb.*", $null); continue }
                     $name = $c
                     if ($joinDef.Rename.$c) { $name = $joinDef.Rename.$c }
                     if ($name -notmatch "\A[A-Za-z0-9 _\-]+\Z") { throw "Invalid Rename value: $name" }
