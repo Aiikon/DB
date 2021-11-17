@@ -604,7 +604,7 @@ Function Remove-DBView
 
 $Script:FilterList = @(
     'FilterEq', 'FilterNe', 'FilterGt', 'FilterGe', 'FilterLt', 'FilterLe'
-    'FilterLike', 'FilterNotLike', 'FilterNull', 'FilterNotNull', 'FilterExists'
+    'FilterLike', 'FilterNotLike', 'FilterNull', 'FilterNotNull', 'FilterNullOrEmpty', 'FilterExists'
 )
 Function Get-DBWhereSql
 {
@@ -624,6 +624,7 @@ Function Get-DBWhereSql
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
         [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [string[]] $FilterNullOrEmpty,
         [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
     )
     End
@@ -644,6 +645,7 @@ Function Get-DBWhereSql
         $otherDict = [ordered]@{}
         $otherDict.Null = "IS NULL"
         $otherDict.NotNull = "IS NOT NULL"
+        $otherDict.NullOrEmpty = ""
 
         $whereList = New-Object System.Collections.Generic.List[string]
         
@@ -715,7 +717,14 @@ Function Get-DBWhereSql
             foreach ($col in $otherCol)
             {
                 if ($col -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Column $col is an invalid column name." }
-                $whereList.Add("$T[$col] $op2")
+                if ($op -eq 'NullOrEmpty')
+                {
+                    $whereList.Add("($T[$col] IS NULL OR $T[$col] = '')")
+                }
+                else
+                {
+                    $whereList.Add("$T[$col] $op2")
+                }
             }
         }
 
@@ -791,6 +800,7 @@ Function Define-DBJoin
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
         [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [string[]] $FilterNullOrEmpty,
         [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists,
         [Parameter()] [hashtable] $JoinFilterEq,
         [Parameter()] [hashtable] $JoinFilterNe,
@@ -802,6 +812,7 @@ Function Define-DBJoin
         [Parameter()] [hashtable] $JoinFilterNotLike,
         [Parameter()] [string[]] $JoinFilterNull,
         [Parameter()] [string[]] $JoinFilterNotNull,
+        [Parameter()] [string[]] $JoinFilterNullOrEmpty,
         [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $JoinFilterExists
     )
     End
@@ -858,6 +869,7 @@ Function Get-DBRow
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
         [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [string[]] $FilterNullOrEmpty,
         [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
     )
     End
@@ -1169,6 +1181,7 @@ Function Remove-DBRow
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
         [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [string[]] $FilterNullOrEmpty,
         [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
     )
     End
@@ -1215,6 +1228,7 @@ Function Set-DBRow
         [Parameter()] [hashtable] $FilterNotLike,
         [Parameter()] [string[]] $FilterNull,
         [Parameter()] [string[]] $FilterNotNull,
+        [Parameter()] [string[]] $FilterNullOrEmpty,
         [Parameter()] [ValidateNotNullOrEmpty()] [object[]] $FilterExists
     )
     End

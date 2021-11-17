@@ -241,6 +241,27 @@ Describe 'DB Module' {
             @(Get-DBRow DBTest -Table Cluster -FilterNull ClusterType).Count | Should Be 0
         }
 
+        It 'Get-DBRow -FilterNullOrEmpty' {
+            New-DBTable DBTest -Table FilterNullOrEmptyTest -Definition {
+                Define-DBColumn Key nvarchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn Value nvarchar
+            }
+
+            [pscustomobject]@{Key='Empty'; Value=''} | Add-DBRow DBTest -Table FilterNullOrEmptyTest
+            [pscustomobject]@{Key='Null'} | Add-DBRow DBTest -Table FilterNullOrEmptyTest
+            [pscustomobject]@{Key='NotNull'; Value='a'} | Add-DBRow DBTest -Table FilterNullOrEmptyTest
+
+            $debug = Get-DBRow DBTest -Table FilterNullOrEmptyTest -FilterNullOrEmpty Value -DebugOnly
+            $debug.Query | Should Be "SELECT * FROM [Tests].[FilterNullOrEmptyTest] T1 WHERE (T1.[Value] IS NULL OR T1.[Value] = '')"
+
+            $values = Get-DBRow DBTest -Table FilterNullOrEmptyTest -FilterNullOrEmpty Value |
+                Sort-Object Key |
+                ForEach-Object Key
+            @($values).Count | Should Be 2
+            $values[0] | Should Be 'Empty'
+            $values[1] | Should Be 'Null'
+        }
+
         It 'Get-DBRow -FilterNotNull' {
             @(Get-DBRow DBTest -Table Cluster -FilterNotNull ClusterType).Count | Should Be 5
         }
