@@ -850,6 +850,58 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Transactions' {
+        It "Can rollback transactions" {
+            New-DBTable DBTest -Table Transaction1 -Definition {
+                Define-DBColumn Key int -Required -PrimaryKey
+                Define-DBColumn Value1 nvarchar
+            }
+
+            [pscustomobject]@{
+                Key = 1
+                Value1 = 'Before'
+            } | Add-DBRow DBTest -Table Transaction1
+            
+            Use-DBTransaction DBTest
+            
+            Set-DBRow DBTest -Table Transaction1 -FilterEq @{Key=1} -Set @{Value1='After'}
+            Get-DBRow DBTest -Table Transaction1 -Column Value1 |
+                ForEach-Object Value1 |
+                Should Be 'After'
+
+            Undo-DBTransaction DBTest
+
+            Get-DBRow DBTest -Table Transaction1 -Column Value1 |
+                ForEach-Object Value1 |
+                Should Be 'Before'
+        }
+
+        It "Can commit transactions" {
+            New-DBTable DBTest -Table Transaction2 -Definition {
+                Define-DBColumn Key int -Required -PrimaryKey
+                Define-DBColumn Value1 nvarchar
+            }
+
+            [pscustomobject]@{
+                Key = 1
+                Value1 = 'Before'
+            } | Add-DBRow DBTest -Table Transaction2
+            
+            Use-DBTransaction DBTest
+            
+            Set-DBRow DBTest -Table Transaction2 -FilterEq @{Key=1} -Set @{Value1='After'}
+            Get-DBRow DBTest -Table Transaction2 -Column Value1 |
+                ForEach-Object Value1 |
+                Should Be 'After'
+
+            Complete-DBTransaction DBTest
+
+            Get-DBRow DBTest -Table Transaction2 -Column Value1 |
+                ForEach-Object Value1 |
+                Should Be 'After'
+        }
+    }
+
     Context 'Edge Cases' {
         
         It 'Uses the right table abbreviations when self-joining' {
