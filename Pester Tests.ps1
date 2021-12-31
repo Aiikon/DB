@@ -167,6 +167,26 @@ Describe 'DB Module' {
             "ClusterType", "File", "SQL", "Service" | ConvertFrom-Csv | Add-DBRow DBTest -Table ClusterType
         }
 
+        It 'Add-DBRow with Identity' {
+            
+            New-DBTable DBTest -Table Identity1 -Definition {
+                Define-DBColumn Id int -Required -PrimaryKey -Identity
+                Define-DBColumn Value1 nvarchar
+            }
+
+            @(
+                [pscustomobject]@{Value1='Item1'}
+                [pscustomobject]@{Value1='Item2'}
+            ) | Add-DBRow DBTest -Table Identity1
+
+            $data = Get-DBRow DBTest -Table Identity1
+            $data[0].Id | Should Be 1
+            $data[0].Value1 | Should Be Item1
+
+            $data[1].Id | Should Be 2
+            $data[1].Value1 | Should Be Item2
+        }
+
         It 'Get-DBRow' {
             (Get-DBRow DBTest -Table Cluster).Count | Should Be 5
         }

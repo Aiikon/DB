@@ -450,7 +450,7 @@ Function New-DBTable
         foreach ($columnDefinition in $columnDefinitionList)
         {
             $columnName = $columnDefinition.Name
-            $columnSql = "    " + (Get-DBColumnSql $columnDefinition.Name $columnDefinition.Type -Length $columnDefinition.Length -Required:$columnDefinition.Required -Default $columnDefinition.Default -HasDefault $columnDefinition.HasDefault)
+            $columnSql = "    " + (Get-DBColumnSql $columnDefinition.Name $columnDefinition.Type -Length $columnDefinition.Length -Required:$columnDefinition.Required -Default $columnDefinition.Default -HasDefault $columnDefinition.HasDefault -IsIdentity $columnDefinition.IsIdentity)
             $definitionSqlList.Add($columnSql)
             if ($columnDefinition.Unique)
             {
@@ -1322,7 +1322,8 @@ Function Get-DBColumnSql
         [Parameter()] [int] $Length,
         [Parameter()] [switch] $Required,
         [Parameter()] [string] $Default,
-        [Parameter()] [bool] $HasDefault
+        [Parameter()] [bool] $HasDefault,
+        [Parameter()] [bool] $IsIdentity
     )
     End
     {
@@ -1341,6 +1342,10 @@ Function Get-DBColumnSql
         {
             if ($Type -match 'char|time') { $Default = "'$Default'" }
             $columnSql += " DEFAULT $Default"
+        }
+        if ($IsIdentity)
+        {
+            $columnSql += " IDENTITY(1,1)"
         }
         $columnSql
     }
@@ -1539,6 +1544,7 @@ Function Define-DBColumn
         [Parameter()] [switch] $PrimaryKey,
         [Parameter()] [string] $Default,
         [Parameter()] [switch] $Index,
+        [Parameter()] [switch] $Identity,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $IndexName,
         [Parameter()] [switch] $Unique,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $UniqueIndexName
@@ -1559,6 +1565,7 @@ Function Define-DBColumn
         $definition.Default = $Default
         $definition.Index = $Index.IsPresent
         $definition.IndexName = $IndexName
+        $definition.IsIdentity = $Identity.IsPresent
         $definition.Unique = $Unique.IsPresent
         $definition.UniqueIndexName = $UniqueIndexName
         [pscustomobject]$definition
