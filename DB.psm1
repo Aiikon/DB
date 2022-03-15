@@ -441,6 +441,9 @@ Function New-DBTable
 
         if (!$primaryKeyDefinition) { Write-Warning "No primary key was specified for $Schema.$Table!" }
 
+        $temporalSettings = $definitionList | Where-Object DefinitionType -eq TemporalTableSettings
+        if (@($temporalSettings).Count -gt 1) { throw "Only one Define-DBTemporalTableSettings can be provided." }
+
         $tableSql = New-Object System.Collections.Generic.List[string]
         $tableSql.Add("CREATE TABLE [$Schema].[$Table]")
         $tableSql.Add("(")
@@ -460,6 +463,14 @@ Function New-DBTable
             {
                 $definitionSqlList.Add("    INDEX [IX_$columnName] ([$columnName])")
             }
+        }
+
+        if ($temporalSettings)
+        {
+            $start, $end = $temporalSettings.SysStartTimeColumn, $temporalSettings.SysEndTimeColumn
+            $definitionSqlList.Add("    [$start] datetime2 GENERATED ALWAYS AS ROW START")
+            $definitionSqlList.Add("    [$end] datetime2 GENERATED ALWAYS AS ROW END")
+            $definitionSqlList.Add("    PERIOD FOR SYSTEM_TIME ([$start], [$end])")
         }
 
         if ($primaryKeyDefinition)
@@ -491,6 +502,13 @@ Function New-DBTable
         $tableSql.Add($definitionSqlList -join ",`r`n")
         $tableSql.Add(")")
 
+        if ($temporalSettings)
+        {
+            $historySchema = $temporalSettings.HistorySchema
+            if (!$historySchema) { $historySchema = $Schema }
+            $tableSql.Add("WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [$historySchema].[$($temporalSettings.HistoryTable)]))")
+        }
+
         if ($DebugOnly) { return [pscustomobject]@{Query=$tableSql -join "`r`n"; Parameters=@{}} }
 
         Invoke-DBQuery $Connection ($tableSql -join "`r`n") -Mode NonQuery | Out-Null
@@ -513,6 +531,29 @@ Function Remove-DBTable
         {
             Invoke-DBQuery $Connection "DROP TABLE [$Schema].[$Table]" -Mode NonQuery | Out-Null
         }
+    }
+}
+
+Function Define-DBTemporalTableSettings
+{
+    Param
+    (
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $SysStartTimeColumn,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $SysEndTimeColumn,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $HistorySchema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $HistoryTable,
+        [Parameter(Mandatory=$true)] [switch] $BetaAcknowledgement
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $definition = [ordered]@{}
+        $definition.DefinitionType = 'TemporalTableSettings'
+        $definition.SysStartTimeColumn = $SysStartTimeColumn
+        $definition.SysEndTimeColumn = $SysEndTimeColumn
+        $definition.HistorySchema = $HistorySchema
+        $definition.HistoryTable = $HistoryTable
+        [pscustomobject]$definition
     }
 }
 

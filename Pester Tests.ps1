@@ -5,6 +5,8 @@ Describe 'DB Module' {
     
     Function CleanQuery($Query) { $Query.Trim() -replace "[`r`n ]+", " " }
 
+    Invoke-DBQuery DBTest "ALTER TABLE Tests.Temporal1 SET (SYSTEM_VERSIONING = OFF)" -ErrorAction SilentlyContinue
+
     Get-DBTable DBTest -TableType Table |
         ForEach-Object { Remove-DBTable DBTest -Schema $_.Schema -Table $_.Table -Confirm:$false }
 
@@ -867,6 +869,73 @@ Describe 'DB Module' {
             $audit.Description__Updated | Should Be $null
             $audit.Description__Before | Should Be 'Sample Service'
             $audit.Description__After | Should Be $null
+        }
+    }
+
+    Context 'Temporal Tables' {
+        It 'Creates temporal tables (Syntax Check)' {
+            $query = New-DBTable DBTest -Table Temporal1 -DebugOnly -Definition {
+                Define-DBColumn Username nvarchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn FullName nvarchar -Length 256
+                Define-DBColumn Weight int
+                Define-DBTemporalTableSettings -SysStartTimeColumn ValidFrom -SysEndTimeColumn ValidTo -HistorySchema Tests -HistoryTable Temporal1_History -BetaAcknowledgement
+            }
+
+            $query.Query | Should Be ("
+            CREATE TABLE [Tests].[Temporal1]
+            (
+                [Username] nvarchar(32) NOT NULL,
+                [FullName] nvarchar(256) NULL,
+                [Weight] int NULL,
+                [ValidFrom] datetime2 GENERATED ALWAYS AS ROW START,
+                [ValidTo] datetime2 GENERATED ALWAYS AS ROW END,
+                PERIOD FOR SYSTEM_TIME ([ValidFrom], [ValidTo]),
+                CONSTRAINT [PK_Temporal1] PRIMARY KEY ([Username])
+            )
+            WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = [Tests].[Temporal1_History]))
+            " -replace '(?m)^ {12}').Trim()
+        }
+
+        It 'Creates temporal tables (Reality Check)' {
+            New-DBTable DBTest -Table Temporal1 -Definition {
+                Define-DBColumn Username nvarchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn FullName nvarchar -Length 256
+                Define-DBColumn Weight int
+                Define-DBTemporalTableSettings -SysStartTimeColumn ValidFrom -SysEndTimeColumn ValidTo -HistorySchema Tests -HistoryTable Temporal1_History -BetaAcknowledgement
+            }
+
+            $mainColList = Get-DBColumn DBTest -Table Temporal1
+            $historyColList = Get-DBColumn DBTest -Table Temporal1_History
+
+            $mainColList.Column -join '|' | Should Be "Username|FullName|Weight|ValidFrom|ValidTo"
+            $historyColList.Column -join '|' | Should Be "Username|FullName|Weight|ValidFrom|ValidTo"
+        }
+
+        It 'Adds to / updates temporal tables' {
+            [pscustomobject]@{Username='jsmith'; FullName='John Smith'; Weight=220} |
+                Add-DBRow DBTest -Table Temporal1
+
+            $main1 = Get-DBRow DBTest -Table Temporal1
+            $history1 = Get-DBRow DBTest -Table Temporal1_History
+
+            @($main1).Count | Should Be 1
+            @($history1).Count | Should Be 0
+
+            $main1.Username | Should Be jsmith
+            $main1.Weight | Should Be 220
+
+            Set-DBRow DBTest -Table Temporal1 -Set @{Weight=215} -FilterEq @{Username='jsmith'}
+
+            $main2 = Get-DBRow DBTest -Table Temporal1
+            $history2 = Get-DBRow DBTest -Table Temporal1_History
+
+            @($main2).Count | Should Be 1
+            @($history2).Count | Should Be 1
+
+            $main2.Username | Should Be jsmith
+            $main2.Weight | Should Be 215
+            $history2.Username | Should Be jsmith
+            $history2.Weight | Should Be 220
         }
     }
 

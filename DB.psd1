@@ -102,6 +102,7 @@ FunctionsToExport = @(
     'Get-DBTable'
     'New-DBTable'
     'Remove-DBTable'
+    'Define-DBTemporalTableSettings'
     'Get-DBViewSql'
     'New-DBView'
     'Remove-DBView'
