@@ -1611,6 +1611,12 @@ Function Define-DBColumn
         trap { $PSCmdlet.ThrowTerminatingError($_) }
         if ($PrimaryKey -and ($Unique.IsPresent -or $Index.IsPresent)) { throw "PrimaryKey and Unique or Index cannot be specified together." }
         if ($Unique.IsPresent -and $Index.IsPresent) { throw "Index and Unique cannot be specified together." }
+        if ($Type -match "^(n?)char$" -and !$Length)
+        {
+            $newType = "$($Matches[1])varchar"
+            Write-Warning "Changing $Type to $newType because it has no length."
+            $Type = $newType
+        }
         $definition = [ordered]@{}
         $definition.DefinitionType = 'Column'
         $definition.Name = $Name

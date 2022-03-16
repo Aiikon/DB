@@ -782,6 +782,13 @@ Describe 'DB Module' {
             $column[1].IsNullable | Should Be $false
             $column[2].IsNullable | Should Be $true
         }
+
+        It 'Define-DBColumn with a (n)char and no length changes to (n)varchar' {
+            $test1 = Define-DBColumn Test1 char -WarningAction SilentlyContinue
+            $test1.Type | Should Be varchar
+            $test2 = Define-DBColumn Test2 nchar -WarningAction SilentlyContinue
+            $test2.Type | Should Be nvarchar
+        }
     }
 
     Context 'Triggers' {
