@@ -13,7 +13,8 @@ Function Initialize-DBConnectionToLocalDB
     (
         [Parameter(Mandatory=$true,Position=0)] [string] $ConnectionName,
         [Parameter(Mandatory=$true)] [string] $FilePath,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $DefaultSchema = 'dbo'
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $DefaultSchema = 'dbo',
+        [Parameter()] [int] $ConnectionTimeout
     )
     End
     {
@@ -42,6 +43,7 @@ Function Initialize-DBConnectionToLocalDB
         }
 
         $connectionString = "$connectionString;AttachDbFilename=$FilePath;"
+        if ($PSBoundParameters.ContainsKey('ConnectionTimeout')) { $connectionString = "${connectionString}Connection Timeout=$ConnectionTimeout;" }
         $connectionObject.ConnectionString = $connectionString
         $connectionObject.Open()
 
@@ -76,7 +78,8 @@ Function Initialize-DBConnectionToSqlDB
         [Parameter(Mandatory=$true,Position=1)] [string] $Server,
         [Parameter(Position=2)] [string] $Instance,
         [Parameter(Position=3)] [string] $Database,
-        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $DefaultSchema = 'dbo'
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $DefaultSchema = 'dbo',
+        [Parameter()] [int] $ConnectionTimeout
     )
     End
     {
@@ -85,6 +88,7 @@ Function Initialize-DBConnectionToSqlDB
         $inst = if ($Instance) { "\$Instance" }
         $datab = if ($Database) { ";Database=$Database" }
         $connectionString = "Server=$Server$inst$datab;Trusted_Connection=true;Integrated Security=true;"
+        if ($PSBoundParameters.ContainsKey('ConnectionTimeout')) { $connectionString = "${connectionString}Connection Timeout=$ConnectionTimeout;" }
         $connectionObject = New-Object System.Data.SqlClient.SqlConnection
         $connectionObject.ConnectionString = $connectionString
         $connectionObject.Open()

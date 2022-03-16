@@ -17,7 +17,14 @@ Describe 'DB Module' {
     try { Remove-DBSchema DBTest -Schema TableHerring -Confirm:$false -ErrorAction Stop } catch { }
 
     Context 'Connection' {
+        It 'ConnectionTimeout' {
+            Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests -ConnectionTimeout 99
+            $connection = $Global:ModuleConfig_ed9ef8e030674a34b39023c2c60d80b5.Connections['DBTest']
+            $connection.ConnectionString | Should Match "Connection Timeout=99;"
+        }
+            
         It 'Reuses' {
+            Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
             $connection1 = $Global:ModuleConfig_ed9ef8e030674a34b39023c2c60d80b5.Connections['DBTest']
             Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
             $connection2 = $Global:ModuleConfig_ed9ef8e030674a34b39023c2c60d80b5.Connections['DBTest']
