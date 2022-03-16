@@ -16,6 +16,21 @@ Describe 'DB Module' {
     try { Remove-DBSchema DBTest -Schema Tests -Confirm:$false -ErrorAction Stop } catch { }
     try { Remove-DBSchema DBTest -Schema TableHerring -Confirm:$false -ErrorAction Stop } catch { }
 
+    Context 'Connection' {
+        It 'Close-DBConnection' {
+            
+            Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
+            $connection = $Global:ModuleConfig_ed9ef8e030674a34b39023c2c60d80b5.Connections['DBTest']
+            $connection.ConnectionObject.State | Should Be 'Open'
+
+            Close-DBConnection DBTest
+
+            $connection.ConnectionObject.State | Should Be 'Closed'
+
+            Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
+        }
+    }
+
     Context 'Query' {
         It 'Invoke-DBQuery -Mode Reader' {
             $result1 = Invoke-DBQuery DBTest -Mode Reader "SELECT 'A' Value"

@@ -123,6 +123,21 @@ Function Connect-DBConnection
     }
 }
 
+Function Close-DBConnection
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection = $Script:ModuleConfig.Connections[$Connection]
+        if (!$dbConnection) { throw "Connection '$Connection' is not defined." }
+        $dbConnection.ConnectionObject.Close()
+    }
+}
+
 Function Use-DBTransaction
 {
     Param
