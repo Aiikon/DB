@@ -730,10 +730,11 @@ Function Get-DBWhereSql
             $filterDict = $PSCmdlet.SessionState.PSVariable.GetValue("Filter$op")
             if (!$filterDict) { continue }
             $op2 = $opDict[$op]
-            foreach ($col in $filterDict.Keys)
+            foreach ($pair in $filterDict.GetEnumerator())
             {
+                $col = $pair.Key
+                $value = $pair.Value
                 if ($col -notmatch "\A[A-Za-z0-9 _\-\*]+\Z") { throw "Column $col is an invalid column name." }
-                $value = $filterDict.$col
                 if ($value -eq $null)
                 {
                     throw "Filter$op[$col] was null and can't be used."
@@ -1378,7 +1379,7 @@ Function Update-DBRow
             
             $set[$property.Name] = $property.Value
         }
-        if ($filterEq.Keys.Count -ne @($finalKeys).Count)
+        if (@($filterEq).GetEnumerator().Count -ne @($finalKeys).Count)
         {
             Write-Error "InputObject '$InputObject' does not have all key properties."
             return
