@@ -2009,6 +2009,44 @@ Function Remove-DBTrigger
     }
 }
 
+Function New-DBForeignKeyConstraint
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $Column,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $ForeignTable,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $ForeignSchema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string[]] $ForeignColumn,
+        [Parameter()] [ValidateSet('NoAction', 'Cascade')] [string] $OnUpdate = 'Cascade',
+        [Parameter()] [ValidateSet('NoAction', 'Cascade')] [string] $OnDelete,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Constraint,
+        [Parameter()] [switch] $DebugOnly
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        if (!$ForeignSchema) { $ForeignSchema = $Schema }
+        if (!$ForeignColumn) { $ForeignColumn = $Column }
+        if (!$Constraint) { $Constraint = "FK_${Table}_${Column}" }
+        $query = [System.Text.StringBuilder]::new()
+        [void]$query.Append("ALTER TABLE [$Schema].[$Table]")
+        [void]$query.Append(" ADD CONSTRAINT [$Constraint] FOREIGN KEY ([$Column])")
+        [void]$query.Append(" REFERENCES [$ForeignSchema].[$ForeignTable] ([$ForeignColumn])")
+        if ($OnUpdate) { [void]$query.Append(" ON UPDATE $($OnUpdate.ToUpper() -replace 'NOACTION', 'NO ACTION')") }
+        if ($OnDelete) { [void]$query.Append(" ON UPDATE $($OnDelete.ToUpper() -replace 'NOACTION', 'NO ACTION')") }
+        
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Constraint", 'Create Foreign Key Constraint'))
+        {
+            if ($DebugOnly) { return [pscustomobject]@{Query=$query.ToString(); Parameters=@{}} }
+            Invoke-DBQuery $Connection -Mode NonQuery -Query $query.ToString()
+        }
+    }
+}
+
 Function New-DBAuditTable
 {
     [CmdletBinding(PositionalBinding=$false)]

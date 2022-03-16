@@ -839,6 +839,47 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Foreign Key Constraints' {
+        It 'Creates (Syntax Validation)' {
+            $query = New-DBForeignKeyConstraint DBTest -Table ForeignChild -Column ParentName -ForeignTable ForeignParent -ForeignColumn ParentName -DebugOnly
+            $query.Query | Should Be (CleanQuery "
+            ALTER TABLE [Tests].[ForeignChild]
+            ADD CONSTRAINT [FK_ForeignChild_ParentName]
+            FOREIGN KEY ([ParentName]) REFERENCES [Tests].[ForeignParent] ([ParentName])
+            ON UPDATE CASCADE
+            ")
+        }
+
+        It 'Creates (Reality Check)' {
+
+            New-DBTable DBTest -Table ForeignParent -Definition {
+                Define-DBColumn ParentName nvarchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn Description nvarchar
+            }
+
+            New-DBTable DBTest -Table ForeignChild -Definition {
+                Define-DBColumn ChildName nvarchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn ParentName nvarchar -Length 32 -Required
+                Define-DBColumn Description nvarchar
+            }
+
+            New-DBForeignKeyConstraint DBTest -Table ForeignChild -Column ParentName -ForeignTable ForeignParent -ForeignColumn ParentName
+
+            [pscustomobject]@{ParentName='A'} | Add-DBRow DBTest -Table ForeignParent
+            [pscustomobject]@{ChildName='B'; ParentName='A'} | Add-DBRow DBTest -Table ForeignChild
+
+            $test1 = Get-DBRow DBTest -Table ForeignChild
+            $test1.ChildName | Should Be 'B'
+            $test1.ParentName | Should Be 'A'
+
+            Set-DBRow DBTest -Table ForeignParent -Set @{ParentName='C'} -FilterEq @{ParentName='A'}
+
+            $test2 = Get-DBRow DBTest -Table ForeignChild
+            $test2.ChildName | Should Be 'B'
+            $test2.ParentName | Should Be 'C'
+        }
+    }
+
     Context 'Audit Tables' {
         try { Remove-DBTable DBTest -Table AuditTest -Confirm:$false -ErrorAction Stop } catch { }
         try { Remove-DBAuditTable DBTest -Table AuditTest -Confirm:$false -ErrorAction SilentlyContinue } catch { }
