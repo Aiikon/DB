@@ -1224,13 +1224,13 @@ Function Add-DBRow
                 $sqlBulkCopy.DestinationTableName = "[$Schema].[$Table]"
                 if ($Timeout -ne $null) { $sqlBulkCopy.BulkCopyTimeout = $Timeout }
                 $sqlBulkCopy.WriteToServer($dataTable)
+                $sqlBulkCopy.Close()
             }
             else
             {
                 if ($Timeout -ne $null) { throw "Timeout is not yet implemented." }
                 $colList = foreach ($column in $dataTable.Columns) { "[$($column.ColumnName)]" } # Rebuild from columns that remain in the datatable
                 $tableAdapter.SelectCommand.CommandText = "SELECT $($colList -join ', ') FROM [$Schema].[$Table]"
-                [void]$tableAdapter.Fill($dataTable)
                 [void]$tableAdapter.Update($dataTable)
             }
         }
