@@ -18,11 +18,6 @@ Function Initialize-DBConnectionToLocalDB
     End
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
-        try
-        {
-            $oldConnection = Get-DBConnection $Name
-            $oldConnection.Object.Dispose()
-        } catch { }
 
         $firstInstance = sqllocaldb.exe info |
             Where-Object { $_ } |
@@ -50,10 +45,22 @@ Function Initialize-DBConnectionToLocalDB
         $connectionObject.ConnectionString = $connectionString
         $connectionObject.Open()
 
+        $oldConnection = $Script:ModuleConfig.Connections[$ConnectionName]
+        if ($oldConnection)
+        {
+            if ($oldConnection.ConnectionString -eq $connectionString)
+            {
+                if ($oldConnection.ConnectionObject.State -ne 'Open') { $oldConnection.ConnectionObject.Open() }
+                return
+            }
+            try { $oldConnection.ConnectionObject.Close() } catch { } finally { $oldConnection.ConnectionObject.Dispose() }
+        }
+
         $connection = [ordered]@{}
         $connection.Name = $ConnectionName
         $connection.Type = "LocalDB"
         $connection.DefaultSchema = $DefaultSchema
+        $connection.ConnectionString = $connectionString
         $connection.ConnectionObject = $connectionObject
         $connection.Transaction = $null
 
@@ -74,23 +81,30 @@ Function Initialize-DBConnectionToSqlDB
     End
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
-        try
-        {
-            $oldConnection = Get-DBConnection $Name
-            $oldConnection.Object.Dispose()
-        } catch { }
 
         $inst = if ($Instance) { "\$Instance" }
         $datab = if ($Database) { ";Database=$Database" }
         $connectionString = "Server=$Server$inst$datab;Trusted_Connection=true;Integrated Security=true;"
         $connectionObject = New-Object System.Data.SqlClient.SqlConnection
-        $connectionObject.ConnectionString = [pscustomobject]$connectionString
+        $connectionObject.ConnectionString = $connectionString
         $connectionObject.Open()
+
+        $oldConnection = $Script:ModuleConfig.Connections[$ConnectionName]
+        if ($oldConnection)
+        {
+            if ($oldConnection.ConnectionString -eq $connectionString)
+            {
+                if ($oldConnection.ConnectionObject.State -ne 'Open') { $oldConnection.ConnectionObject.Open() }
+                return
+            }
+            try { $oldConnection.ConnectionObject.Close() } catch { } finally { $oldConnection.ConnectionObject.Dispose() }
+        }
 
         $connection = [ordered]@{}
         $connection.Name = $ConnectionName
         $connection.Type = "SqlDB"
         $connection.DefaultSchema = $DefaultSchema
+        $connection.ConnectionString = $connectionString
         $connection.ConnectionObject = $connectionObject
         $connection.Transaction = $null
 

@@ -17,6 +17,13 @@ Describe 'DB Module' {
     try { Remove-DBSchema DBTest -Schema TableHerring -Confirm:$false -ErrorAction Stop } catch { }
 
     Context 'Connection' {
+        It 'Reuses' {
+            $connection1 = $Global:ModuleConfig_ed9ef8e030674a34b39023c2c60d80b5.Connections['DBTest']
+            Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
+            $connection2 = $Global:ModuleConfig_ed9ef8e030674a34b39023c2c60d80b5.Connections['DBTest']
+            $connection1.ConnectionObject -eq $connection2.ConnectionObject | Should Be $true
+        }
+
         It 'Close-DBConnection' {
             
             Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
