@@ -117,7 +117,7 @@ Describe 'DB Module' {
     Context 'View Creation' {
         It 'New-DBView' {
             New-DBView DBTest -View View1 -SQL "SELECT * FROM Test1"
-            New-DBView DBTest -View View1 -SQL "SELECT * FROM Test1" -Force
+            New-DBView DBTest -View View1 -SQL "SELECT * FROM Test1" -Force -Confirm:$false
 
             $view = Get-DBTable DBTest -Table View1
             $view.Table | Should Be View1

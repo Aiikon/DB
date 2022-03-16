@@ -603,6 +603,7 @@ Function Get-DBViewSql
 
 Function New-DBView
 {
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
@@ -615,7 +616,7 @@ Function New-DBView
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
-        if ($Force -and (Get-DBTable $Connection -Schema $Schema -Table $View))
+        if ($Force -and (Get-DBTable $Connection -Schema $Schema -Table $View) -and $PSCmdlet.ShouldProcess("$Schema.$View", 'Drop View'))
         {
             Remove-DBView $Connection -Schema $Schema -View $View -Confirm:$false
         }
