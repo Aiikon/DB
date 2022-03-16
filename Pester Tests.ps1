@@ -5,7 +5,7 @@ Describe 'DB Module' {
     
     Function CleanQuery($Query) { $Query.Trim() -replace "[`r`n ]+", " " }
 
-    Invoke-DBQuery DBTest "ALTER TABLE Tests.Temporal1 SET (SYSTEM_VERSIONING = OFF)" -ErrorAction SilentlyContinue
+    try { Invoke-DBQuery DBTest "ALTER TABLE Tests.Temporal1 SET (SYSTEM_VERSIONING = OFF)" -ErrorAction Stop } catch { }
 
     Get-DBTable DBTest -TableType Table |
         ForEach-Object { Remove-DBTable DBTest -Schema $_.Schema -Table $_.Table -Confirm:$false }
@@ -90,7 +90,7 @@ Describe 'DB Module' {
             $table.Table | Should Be Test1
 
             $tableList = Get-DBTable DBTest
-            @($tableList).Count | Should BeGreaterThan 1 
+            @($tableList).Count | Should BeGreaterThan 1
         }
 
         It 'Get-DBTable -Schema' {
@@ -127,7 +127,7 @@ Describe 'DB Module' {
             $table = Get-DBTable DBTest -TableType View
             $table[0].TableType | Should Be View
         }
-        
+
         It 'Remove-DBView' {
             Remove-DBView DBTest -View View1 -Confirm:$false
         }
@@ -170,7 +170,7 @@ Describe 'DB Module' {
         }
 
         It 'Add-DBRow with Identity' {
-            
+
             New-DBTable DBTest -Table Identity1 -Definition {
                 Define-DBColumn Id int -Required -PrimaryKey -Identity
                 Define-DBColumn Value1 nvarchar
@@ -492,7 +492,7 @@ Describe 'DB Module' {
     }
 
     Context 'Default Column Value' {
-        
+
         It "Functions in New-DBTable > Define-DBColumn (Syntax Validation)" {
             $query = New-DBTable DBTest -Table DefaultNew -DebugOnly -Definition {
                 Define-DBColumn Key int -Required -PrimaryKey
@@ -691,7 +691,7 @@ Describe 'DB Module' {
             Get-DBRow DBTest -Table Cluster -FilterEq @{ClusterId=54625654} -Timeout 0 -ErrorAction Stop | Out-Null
             @() | Add-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null
             @() | Update-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null
-            Set-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null
+            Set-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop -Set @{ClusterId=0} -FilterEq @{ClusterId=-1} | Out-Null
             $true | Should Be $true # Just make sure it accepts the parameter, it's a pain to test
         }
 
