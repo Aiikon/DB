@@ -1228,7 +1228,11 @@ Function Add-DBRow
             }
             else
             {
-                if ($Timeout -ne $null) { throw "Timeout is not yet implemented." }
+                if ($Timeout -ne $null)
+                {
+                    $cb = [System.Data.SqlClient.SqlCommandBuilder]::new($tableAdapter)
+                    $cb.GetInsertCommand().CommandTimeout = $Timeout
+                }
                 $colList = foreach ($column in $dataTable.Columns) { "[$($column.ColumnName)]" } # Rebuild from columns that remain in the datatable
                 $tableAdapter.SelectCommand.CommandText = "SELECT $($colList -join ', ') FROM [$Schema].[$Table]"
                 [void]$tableAdapter.Update($dataTable)
