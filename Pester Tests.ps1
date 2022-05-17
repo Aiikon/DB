@@ -714,6 +714,100 @@ Describe 'DB Module' {
         }
     }
 
+
+    Context 'Sync-DBRow' {
+
+        It 'Basic Insert/Update/Delete Test' {
+
+            New-DBTable DBTest -Table SyncRowBasic -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 64 -Required -PrimaryKey
+                Define-DBColumn OperatingSystem nvarchar
+            }
+
+            [pscustomobject]@{
+                ComputerName = 'SimpleServer'
+                OperatingSystem = 'Server 2016'
+            } | Sync-DBRow DBTest -Table SyncRowBasic -BetaAcknowledgement
+
+            $result1 = Get-DBRow DBTest -Table SyncRowBasic -FilterEq @{ComputerName='SimpleServer'}
+            $result1.ComputerName | Should Be 'SimpleServer'
+            $result1.OperatingSystem | Should Be 'Server 2016'
+
+            [pscustomobject]@{
+                ComputerName = 'SimpleServer'
+                OperatingSystem = 'Server 2019'
+            } | Sync-DBRow DBTest -Table SyncRowBasic -BetaAcknowledgement
+
+            $result2 = Get-DBRow DBTest -Table SyncRowBasic -FilterEq @{ComputerName='SimpleServer'}
+            $result2.ComputerName | Should Be 'SimpleServer'
+            $result2.OperatingSystem | Should Be 'Server 2019'
+
+            [pscustomobject]@{
+                ComputerName = 'NewServer'
+                OperatingSystem = 'Server 2022'
+            } | Sync-DBRow DBTest -Table SyncRowBasic -BetaAcknowledgement
+
+            Get-DBRow DBTest -Table SyncRowBasic
+
+            $result3 = Get-DBRow DBTest -Table SyncRowBasic -FilterEq @{ComputerName='SimpleServer'}
+            $result3 | Should Be $null
+
+            $result4 = Get-DBRow DBTest -Table SyncRowBasic -FilterEq @{ComputerName='NewServer'}
+            $result4.ComputerName | Should Be 'NewServer'
+            $result4.OperatingSystem | Should Be 'Server 2022'
+        }
+
+        It 'Set Insert/Update/Delete Test' {
+
+            New-DBTable DBTest -Table SyncRowSet -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 64 -Required -PrimaryKey
+                Define-DBColumn OperatingSystem nvarchar
+            }
+
+            @(
+                [pscustomobject]@{
+                    ComputerName = 'WindowsSetServer'
+                    OperatingSystem = 'Server 2016'
+                }
+                [pscustomobject]@{
+                    ComputerName = 'LinuxSetServer'
+                    OperatingSystem = 'Debian'
+                }
+            ) | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName -BetaAcknowledgement
+
+            $result1 = Get-DBRow DBTest -Table SyncRowSet -OrderBy ComputerName
+            @($result1).Count | Should Be 2
+            $result1[0].ComputerName | Should Be 'LinuxSetServer'
+            $result1[0].OperatingSystem | Should Be 'Debian'
+            $result1[1].ComputerName | Should Be 'WindowsSetServer'
+            $result1[1].OperatingSystem | Should Be 'Server 2016'
+
+            [pscustomobject]@{
+                ComputerName = 'WindowsSetServer'
+                OperatingSystem = 'Server 2019'
+            } | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName -BetaAcknowledgement
+
+            $result2 = Get-DBRow DBTest -Table SyncRowSet -OrderBy ComputerName
+            @($result2).Count | Should Be 2
+            $result2[0].ComputerName | Should Be 'LinuxSetServer'
+            $result2[0].OperatingSystem | Should Be 'Debian'
+            $result2[1].ComputerName | Should Be 'WindowsSetServer'
+            $result2[1].OperatingSystem | Should Be 'Server 2019'
+
+            [pscustomobject]@{
+                ComputerName = 'LinuxSetServer'
+                OperatingSystem = 'RedHat'
+            } | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName -SetValues 'LinuxSetServer' -BetaAcknowledgement
+
+            $result2 = Get-DBRow DBTest -Table SyncRowSet -OrderBy ComputerName
+            @($result2).Count | Should Be 2
+            $result2[0].ComputerName | Should Be 'LinuxSetServer'
+            $result2[0].OperatingSystem | Should Be 'RedHat'
+            $result2[1].ComputerName | Should Be 'WindowsSetServer'
+            $result2[1].OperatingSystem | Should Be 'Server 2019'
+        }
+    }
+
     Context 'Get/Set/Add/Remove Row Edge Cases' {
         It 'Parameter -Timeout exists for all -DBRow cmdlets' {
             Get-DBRow DBTest -Table Cluster -Timeout 0 -ErrorAction Stop | Out-Null

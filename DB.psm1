@@ -1350,6 +1350,123 @@ Function Set-DBRow
     }
 }
 
+Function Sync-DBRow
+{
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
+        [Parameter()] [string[]] $SetKeys,
+        [Parameter()] [object[]] $SetValues,
+        [Parameter()] [Nullable[int]] $Timeout,
+        [Parameter(Mandatory=$true)] [switch] $BetaAcknowledgement
+    )
+    Begin
+    {
+        $inputObjectList = [System.Collections.Generic.List[object]]::new()
+    }
+    Process
+    {
+        if (!$InputObject) { return }
+        $inputObjectList.Add($InputObject)
+    }
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        $dataTable = [System.Data.DataTable]::new()
+        $selectCommand = $dbConnection.ConnectionObject.CreateCommand()
+        
+        if ($SetKeys)
+        {
+            if ($SetKeys.Count -eq 1 -and $SetValues -and $SetValues[0] -isnot [pscustomobject])
+            {
+                $SetValues = foreach ($value in $SetValues)
+                {
+                    [pscustomobject]@{$SetKeys[0] = $value}
+                }
+            }
+            if (!$SetValues)
+            {
+                $SetValues = $inputObjectList | Select-Object -Unique $SetKeys
+            }
+            $debug = Get-DBRow $Connection -Schema $Schema -Table $Table -FilterExists $SetValues -DebugOnly
+            $selectCommand.CommandText = $debug.Query
+            foreach ($pair in $debug.Parameters.GetEnumerator())
+            {
+                $selectCommand.Parameters.Add($pair.Key, $pair.Value)
+            }
+        }
+        else
+        {
+            $selectCommand.CommandText = "SELECT * FROM [$Schema].[$Table]"
+        }
+
+        if ($dbConnection.Transaction) { $selectCommand.Transaction = $dbConnection.Transaction }
+        $tableAdapter = [System.Data.SqlClient.SqlDataAdapter]::new($selectCommand)
+        $commandBuilder = [System.Data.SqlClient.SqlCommandBuilder]::new($tableAdapter)
+        [void]$tableAdapter.Fill($dataTable)
+        [void]$tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
+
+        $keyColumnList = foreach ($col in $dataTable.PrimaryKey) { $col.ColumnName }
+        $otherColumnList = foreach ($col in $dataTable.Columns)
+        {
+            if ($keyColumnList -contains $col.ColumnName) { continue }
+            $col.ColumnName
+        }
+
+        $oldRowDict = @{}
+        foreach ($oldRow in $dataTable.Rows)
+        {
+            $keyValue = @(foreach ($primaryKey in $keyColumnList) { $oldRow[$primaryKey] }) -join '|'
+            $oldRowDict[$keyValue] = $oldRow
+        }
+
+        $syncRowKeys = @{}
+        foreach ($syncRow in $inputObjectList)
+        {
+            $keyValue = @(foreach ($primaryKey in $keyColumnList) { $syncRow.$primaryKey }) -join '|'
+            $syncRowKeys[$keyValue] = $true
+            $oldRow = $oldRowDict[$keyValue]
+            $newRow = $dataTable.NewRow()
+
+            foreach ($prop in $syncRow.PSObject.Properties)
+            {
+                $newRow[$prop.Name] = $prop.Value
+            }
+
+            if ($oldRow)
+            {
+                $same = $true
+                foreach ($column in $otherColumnList)
+                {
+                    if ($oldRow[$column] -ne $newRow[$column])
+                    {
+                        $oldRow[$column] = $newRow[$column]
+                    }
+                }
+            }
+            else
+            {
+                $dataTable.Rows.Add($newRow)
+            }
+
+            foreach ($oldKey in $oldRowDict.Keys)
+            {
+                if ($syncRowKeys[$oldKey]) { continue }
+                $oldRowDict[$oldKey].Delete()
+            }
+        }
+
+        [void]$tableAdapter.Update($dataTable)
+        $dataTable.Dispose()
+        $tableAdapter.Dispose()
+        $commandBuilder.Dispose()
+    }
+}
+
 Function Update-DBRow
 {
     Param

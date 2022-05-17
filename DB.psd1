@@ -112,6 +112,7 @@ FunctionsToExport = @(
     'Add-DBRow'
     'Remove-DBRow'
     'Set-DBRow'
+    'Sync-DBRow'
     'Update-DBRow'
     'Get-DBColumn'
     'New-DBColumn'
