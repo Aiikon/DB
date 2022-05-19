@@ -1194,7 +1194,7 @@ Function Add-DBRow
             {
                 if ($null -ne $property.Value -and -not ($whitespaceMustBeNull[$propertyName] -and $property.Value -eq ''))
                 {
-                    $newRow[$propertyName] = $property.Value
+                    try { $newRow[$propertyName] = $property.Value } catch { $newRow[$propertyName] = $property.Value.PSObject.BaseObject }
                 }
             }
             else
