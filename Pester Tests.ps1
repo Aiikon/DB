@@ -976,6 +976,35 @@ Describe 'DB Module' {
 
             Remove-DBTable DBTest -Table AddWithMissing -Confirm:$false
         }
+
+        It 'DBRow with blank pscustomobject' {
+            New-DBTable DBTest -Table TestBlankPsCustomObject -Definition {
+                Define-DBColumn Index int -Required -PrimaryKey
+                Define-DBColumn Object nvarchar
+            }
+
+            [pscustomobject]@{
+                Index = 1
+                Object = if ($false) { 1 }
+            } | Add-DBRow DBTest -Table TestBlankPsCustomObject
+
+            $result1 = Get-DBRow DBTest -Table TestBlankPsCustomObject -FilterEq @{Index=1}
+            $result1.Object | Should Be $null
+
+            [pscustomobject]@{
+                Index = 2
+                Object = if ($false) { 1 }
+            } | Add-DBRow DBTest -Table TestBlankPsCustomObject -BulkCopy
+
+            $result2 = Get-DBRow DBTest -Table TestBlankPsCustomObject -FilterEq @{Index=2}
+            $result2.Object | Should Be $null
+
+            $temp = [pscustomobject]@{Object = if ($false) { 1 } }
+            Set-DBRow DBTest -Table TestBlankPsCustomObject -FilterEq @{Index=1} -Set @{Object=$temp.Object}
+
+            $result3 = Get-DBRow DBTest -Table TestBlankPsCustomObject -FilterEq @{Index=1}
+            $result3.Object | Should Be $null
+        }
     }
 
     Context 'Table Columns' {
