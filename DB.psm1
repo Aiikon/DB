@@ -1460,6 +1460,7 @@ Function Sync-DBRow
                 $dataTable.Rows.Add($newRow)
                 $countInserted += 1
             }
+        }
 
         foreach ($oldKey in $oldRowDict.Keys)
         {
