@@ -806,6 +806,117 @@ Describe 'DB Module' {
             $result2[1].ComputerName | Should Be 'WindowsSetServer'
             $result2[1].OperatingSystem | Should Be 'Server 2019'
         }
+
+        It 'Bulk Tests - Insert' {
+            New-DBTable DBTest -Table SyncBulkTest -Definition {
+                Define-DBColumn Index int -Required -PrimaryKey
+                Define-DBColumn Mod int -Required
+                Define-DBColumn Text nvarchar -Required
+            }
+
+            # Insert Many
+            $result1 = 1..20 | % {
+                [pscustomobject]@{
+                    Index = $_
+                    Mod = $_ % 3
+                    Text = $_.ToString()
+                }
+            } |
+                Sync-DBRow DBTest -Table SyncBulkTest -BetaAcknowledgement
+
+            $result1.CountInput | Should Be 20
+            $result1.CountInserted | Should Be 20
+            $result1.CountUpdated | Should Be 0
+            $result1.CountDeleted | Should Be 0
+            $result1.CountNoChange | Should Be 0
+        }
+
+        It 'Bulk Tests - No Update Many' {
+
+            $result1 = 1..20 | % {
+                [pscustomobject]@{
+                    Index = $_
+                    Mod = $_ % 3
+                    Text = $_.ToString()
+                }
+            } |
+                Sync-DBRow DBTest -Table SyncBulkTest -BetaAcknowledgement
+
+            $result1.CountInput | Should Be 20
+            $result1.CountInserted | Should Be 0
+            $result1.CountUpdated | Should Be 0
+            $result1.CountDeleted | Should Be 0
+            $result1.CountNoChange | Should Be 20
+        }
+
+        It 'Bulk Tests - Update Many' {
+
+            $result1 = 1..20 | % {
+                [pscustomobject]@{
+                    Index = $_
+                    Mod = $_ % 4
+                    Text = $_.ToString()
+                }
+            } |
+                Sync-DBRow DBTest -Table SyncBulkTest -BetaAcknowledgement
+
+            $result1.CountInput | Should Be 20
+            $result1.CountInserted | Should Be 0
+            $result1.CountUpdated | Should Be 15
+            $result1.CountDeleted | Should Be 0
+            $result1.CountNoChange | Should Be 5
+
+        }
+
+        It 'Bulk Tests - Update Subset of Many' {
+
+            $result1 = 1..20 | % {
+                [pscustomobject]@{
+                    Index = $_
+                    Mod = $_ % 4
+                    Text = "New $_"
+                }
+            } |
+                Where-Object Mod -eq 0 |
+                Sync-DBRow DBTest -Table SyncBulkTest -BetaAcknowledgement -SetKeys Mod -SetValues 0
+
+            $result1.CountInput | Should Be 5
+            $result1.CountInserted | Should Be 0
+            $result1.CountUpdated | Should Be 5
+            $result1.CountDeleted | Should Be 0
+            $result1.CountNoChange | Should Be 0
+
+        }
+
+        It 'Bulk Tests - Update and Remove Subset of Many' {
+
+            $result1 = 1..20 | % {
+                [pscustomobject]@{
+                    Index = $_
+                    Mod = $_ % 4
+                    Text = "New2 $_"
+                }
+            } |
+                Where-Object Index -gt 10 |
+                Where-Object Mod -eq 0 |
+                Sync-DBRow DBTest -Table SyncBulkTest -BetaAcknowledgement -SetKeys Mod -SetValues 0
+
+            $result1.CountInput | Should Be 3
+            $result1.CountInserted | Should Be 0
+            $result1.CountUpdated | Should Be 3
+            $result1.CountDeleted | Should Be 2
+            $result1.CountNoChange | Should Be 0
+
+        }
+
+        It 'Bulk Tests - Remove All' {
+            $result1 = @() | Sync-DBRow DBTest -Table SyncBulkTest -BetaAcknowledgement -SetKeys Mod -SetValues 0, 1, 2, 3
+            $result1.CountInput | Should Be 0
+            $result1.CountInserted | Should Be 0
+            $result1.CountUpdated | Should Be 0
+            $result1.CountDeleted | Should Be 18
+            $result1.CountNoChange | Should Be 0
+        }
     }
 
     Context 'Get/Set/Add/Remove Row Edge Cases' {

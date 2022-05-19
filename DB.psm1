@@ -1396,7 +1396,7 @@ Function Sync-DBRow
             $selectCommand.CommandText = $debug.Query
             foreach ($pair in $debug.Parameters.GetEnumerator())
             {
-                $selectCommand.Parameters.Add($pair.Key, $pair.Value)
+                [void]$selectCommand.Parameters.Add($pair.Key, $pair.Value)
             }
         }
         else
@@ -1424,6 +1424,11 @@ Function Sync-DBRow
             $oldRowDict[$keyValue] = $oldRow
         }
 
+        $countUpdated = 0
+        $countInserted = 0
+        $countDeleted = 0
+        $countNoChange = 0
+
         $syncRowKeys = @{}
         foreach ($syncRow in $inputObjectList)
         {
@@ -1432,9 +1437,9 @@ Function Sync-DBRow
             $oldRow = $oldRowDict[$keyValue]
             $newRow = $dataTable.NewRow()
 
-            foreach ($prop in $syncRow.PSObject.Properties)
+            foreach ($property in $syncRow.PSObject.Properties)
             {
-                $newRow[$prop.Name] = $prop.Value
+                try { $newRow[$property.Name] = $property.Value } catch { $newRow[$property.Name] = $property.Value.PSObject.BaseObject }
             }
 
             if ($oldRow)
@@ -1445,25 +1450,39 @@ Function Sync-DBRow
                     if ($oldRow[$column] -ne $newRow[$column])
                     {
                         $oldRow[$column] = $newRow[$column]
+                        $same = $false
                     }
                 }
+                if ($same) { $countNoChange += 1 } else { $countUpdated += 1 }
             }
             else
             {
                 $dataTable.Rows.Add($newRow)
+                $countInserted += 1
             }
 
-            foreach ($oldKey in $oldRowDict.Keys)
-            {
-                if ($syncRowKeys[$oldKey]) { continue }
-                $oldRowDict[$oldKey].Delete()
-            }
+        foreach ($oldKey in $oldRowDict.Keys)
+        {
+            if ($syncRowKeys[$oldKey]) { continue }
+            $oldRowDict[$oldKey].Delete()
+            $countDeleted += 1
         }
 
         [void]$tableAdapter.Update($dataTable)
         $dataTable.Dispose()
         $tableAdapter.Dispose()
         $commandBuilder.Dispose()
+
+        $result = [ordered]@{}
+        $result.Connection = $dbConnection.Name
+        $result.Schema = $Schema
+        $result.Table = $Table
+        $result.CountInput = @($inputObjectList).Count
+        $result.CountInserted = $countInserted
+        $result.CountUpdated = $countUpdated
+        $result.CountDeleted = $countDeleted
+        $result.CountNoChange = $countNoChange
+        [pscustomobject]$result
     }
 }
 
