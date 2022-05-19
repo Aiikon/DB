@@ -1330,6 +1330,35 @@ Describe 'DB Module' {
             [pscustomobject]@{Key=1; Span=[TimeSpan]::FromSeconds(1)} | Add-DBRow DBTest -Table TimespanWhitespace
             [pscustomobject]@{Key=2; Span=""} | Add-DBRow DBTest -Table TimespanWhitespace
         }
+
+        It "Add-DBRow with two date time columns adding just one" {
+            New-DBTable DBTest -Table TwoDateTimeTest -Definition {
+                Define-DBColumn Key int -Required -PrimaryKey
+                Define-DBColumn Time1 datetime
+                Define-DBColumn Time2 datetime
+            }
+
+            [pscustomobject]@{
+                Key = 1
+                Time1 = [DateTime]::UtcNow
+            } | Add-DBRow DBTest -Table TwoDateTimeTest
+
+            [pscustomobject]@{
+                Key = 2
+                Time2 = [DateTime]::UtcNow
+            } | Add-DBRow DBTest -Table TwoDateTimeTest
+        }
+
+        It 'Add-DBRow empty column' {
+            New-DBTable DBTest -Table NullTest1 -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 15 -Required -PrimaryKey
+                Define-DBColumn InitializationPages nvarchar
+            }
+
+            [pscustomobject]@{
+                ComputerName='ABCDEFG'
+            } | Add-DBRow DBTest -Table NullTest1
+        }
     }
 
 }
