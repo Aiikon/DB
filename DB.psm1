@@ -1484,10 +1484,10 @@ Function Sync-DBRow
             }
         }
 
-        foreach ($oldKey in $oldRowDict.Keys)
+        foreach ($pair in $oldRowDict.GetEnumerator())
         {
-            if ($syncRowKeys[$oldKey]) { continue }
-            $oldRowDict[$oldKey].Delete()
+            if ($syncRowKeys[$pair.Key]) { continue }
+            $oldRowDict[$pair.Key].Delete()
             $countDeleted += 1
         }
 
