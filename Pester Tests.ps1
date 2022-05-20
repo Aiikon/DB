@@ -1183,6 +1183,17 @@ Describe 'DB Module' {
             $result2.ForeignTable | Should Be ForeignParent
             $result2.ForeignColumn | Should Be ParentName
         }
+
+        It 'Remove-DBConstraint' {
+            
+            $before = Get-DBForeignKeyConstraint DBTest -Table ForeignChild -Column ParentName
+            $before.Table | Should Be ForeignChild
+
+            Remove-DBConstraint DBTest -Table ForeignChild -Constraint FK_ForeignChild_ParentName -Confirm:$false
+
+            $after = Get-DBForeignKeyConstraint DBTest -Table ForeignChild -Column ParentName
+            $after.Table | Should Be $null
+        }
     }
 
     Context 'Audit Tables' {
