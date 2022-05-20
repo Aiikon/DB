@@ -1619,7 +1619,7 @@ Function Get-DBColumn
         }
         if ($Column)
         {
-            $filterSqlList += "col.name = @ColumnName"
+            $filterSqlList += "c.name = @ColumnName"
             $parameters.ColumnName = $Column
         }
         $filterSql = $filterSqlList -join ' AND '

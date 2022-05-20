@@ -1079,6 +1079,12 @@ Describe 'DB Module' {
             $column[2].IsNullable | Should Be $true
         }
 
+        It 'Gets Columns By Name' {
+            $column = Get-DBColumn DBTest -Table ColumnTest -Column Key2
+            $column | Measure-Object | ForEach-Object Count | Should Be 1
+            $column[0].Column | Should Be Key2
+        }
+
         It 'Define-DBColumn with a (n)char and no length changes to (n)varchar' {
             $test1 = Define-DBColumn Test1 char -WarningAction SilentlyContinue
             $test1.Type | Should Be varchar
