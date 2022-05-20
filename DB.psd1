@@ -130,6 +130,7 @@ FunctionsToExport = @(
     'Get-DBTrigger'
     'New-DBTrigger'
     'Remove-DBTrigger'
+    'Get-DBForeignKeyConstraint'
     'New-DBForeignKeyConstraint'
     'New-DBAuditTable'
     'Remove-DBAuditTable'

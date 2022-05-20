@@ -1166,6 +1166,23 @@ Describe 'DB Module' {
             $test2.ChildName | Should Be 'B'
             $test2.ParentName | Should Be 'C'
         }
+
+        It 'Get-DBForeignKeyConstraint' {
+            $result1 = Get-DBForeignKeyConstraint DBTest |
+                Where-Object Schema -eq Tests |
+                Where-Object Table -eq ForeignChild
+
+            $result1.Table | Should Be ForeignChild
+            $result1.Column | Should Be ParentName
+            $result1.ForeignTable | Should Be ForeignParent
+            $result1.ForeignColumn | Should Be ParentName
+
+            $result2 = Get-DBForeignKeyConstraint DBTest -Table ForeignChild -Column ParentName
+            $result2.Table | Should Be ForeignChild
+            $result2.Column | Should Be ParentName
+            $result2.ForeignTable | Should Be ForeignParent
+            $result2.ForeignColumn | Should Be ParentName
+        }
     }
 
     Context 'Audit Tables' {

@@ -2172,6 +2172,83 @@ Function Remove-DBTrigger
     }
 }
 
+Function Get-DBForeignKeyConstraint
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Column,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $ForeignTable,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $ForeignSchema,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $ForeignColumn
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        
+        $filterSqlList = @()
+        $parameters = @{}
+        if ($Table)
+        {
+            $filterSqlList += "t.name = @TableName"
+            $parameters.TableName = $Table
+        }
+        if ($PSBoundParameters['Schema'] -or $Table)
+        {
+            $filterSqlList += "s.name = @SchemaName"
+            $parameters.SchemaName = $Schema
+        }
+        if ($Column)
+        {
+            $filterSqlList += "c.name = @ColumnName"
+            $parameters.ColumnName = $Column
+        }
+        if ($ForeignTable)
+        {
+            $filterSqlList += "ft.name = @ForeignTable"
+            $parameters.ForeignTable = $ForeignTable
+        }
+        if ($ForeignSchema)
+        {
+            $filterSqlList += "fs.name = @ForeignSchema"
+            $parameters.ForeignSchema = $ForeignSchema
+        }
+        if ($ForeignColumn)
+        {
+            $filterSqlList += "fc.name = @ForeignColumn"
+            $parameters.ForeignColumn = $ForeignColumn
+        }
+        $filterSql = $filterSqlList -join ' AND '
+        if ($filterSql) { $filterSql = "AND $filterSql" }
+
+        Invoke-DBQuery $Connection -Parameters $parameters -Query "
+            SELECT
+                s.name [Schema],
+                t.name [Table],
+                fk.constraint_column_id [ColumnIndex],
+                c.name [Column],
+                fs.name [ForeignSchema],
+                ft.name [ForeignTable],
+                fc.name [ForeignColumn],
+                object_name(fk.constraint_object_id) ConstraintName
+            FROM sys.foreign_key_columns fk
+                INNER JOIN sys.tables t ON fk.parent_object_id = t.object_id
+                INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+                INNER JOIN sys.columns c ON fk.parent_object_id = c.object_id and fk.parent_column_id = c.column_id
+                INNER JOIN sys.tables ft ON fk.referenced_object_id = ft.object_id
+                INNER JOIN sys.schemas fs ON ft.schema_id = fs.schema_id
+                INNER JOIN sys.columns fc ON fk.parent_object_id = fc.object_id and fk.parent_column_id = fc.column_id
+            WHERE t.is_ms_shipped = 0 $filterSql
+            ORDER BY s.name, t.name, fk.constraint_column_id
+        "
+    }    
+}
+
 Function New-DBForeignKeyConstraint
 {
     [CmdletBinding(PositionalBinding=$false)]
