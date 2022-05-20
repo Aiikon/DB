@@ -917,6 +917,54 @@ Describe 'DB Module' {
             $result1.CountDeleted | Should Be 18
             $result1.CountNoChange | Should Be 0
         }
+
+        It 'Handles key columns only' {
+            New-DBTable DBTest -Table SyncKeyOnly -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn DomainName nvarchar -Length 32 -Required -PrimaryKey
+            }
+
+            $result1 = @(
+                [pscustomobject]@{ComputerName='ServerA'; DomainName='DomainA'}
+                [pscustomobject]@{ComputerName='ServerA'; DomainName='DomainB'}
+            ) | Sync-DBRow DBTest -Table SyncKeyOnly -BetaAcknowledgement
+
+            $result1.CountInserted | Should Be 2
+
+            $result2 = @(
+                [pscustomobject]@{ComputerName='ServerA'; DomainName='DomainA'}
+                [pscustomobject]@{ComputerName='ServerB'; DomainName='DomainB'}
+            ) | Sync-DBRow DBTest -Table SyncKeyOnly -BetaAcknowledgement
+
+            $result2.CountInserted | Should Be 1
+            $result2.CountDeleted | Should Be 1
+        }
+
+        It 'Handles extra columns' {
+            New-DBTable DBTest -Table SyncExtraColumns -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 32 -Required -PrimaryKey
+            }
+
+            [pscustomobject]@{ComputerName='ServerA'; ExtraField='A'} |
+                Sync-DBRow DBTest -Table SyncExtraColumns -BetaAcknowledgement -WarningAction SilentlyContinue
+        }
+
+        It 'Handles null values' {
+            New-DBTable DBTest -Table SyncNullValues -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn PasswordLastSet datetime
+            }
+
+            [pscustomobject]@{
+                ComputerName = 'ServerA'
+                PasswordLastSet = $null
+            } | Sync-DBRow DBTest -Table SyncNullValues -BetaAcknowledgement
+
+            [pscustomobject]@{
+                ComputerName = 'ServerA'
+                PasswordLastSet = $(if ($false) { [datetime]::Today })
+            } | Sync-DBRow DBTest -Table SyncNullValues -BetaAcknowledgement
+        }
     }
 
     Context 'Get/Set/Add/Remove Row Edge Cases' {

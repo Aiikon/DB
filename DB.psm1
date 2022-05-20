@@ -1410,6 +1410,13 @@ Function Sync-DBRow
         [void]$tableAdapter.Fill($dataTable)
         [void]$tableAdapter.FillSchema($dataTable, [System.Data.SchemaType]::Mapped)
 
+        $unexpected = @{}
+        $whitespaceMustBeNull = @{}
+        foreach ($column in $dataTable.Columns)
+        {
+            if ($column.DataType -eq [System.TimeSpan]) { $whitespaceMustBeNull[$column.ColumnName] = $true }
+        }
+
         $keyColumnList = foreach ($col in $dataTable.PrimaryKey) { $col.ColumnName }
         $otherColumnList = foreach ($col in $dataTable.Columns)
         {
@@ -1439,7 +1446,22 @@ Function Sync-DBRow
 
             foreach ($property in $syncRow.PSObject.Properties)
             {
-                try { $newRow[$property.Name] = $property.Value } catch { $newRow[$property.Name] = $property.Value.PSObject.BaseObject }
+                $propertyName = $property.Name
+                if ([System.DBNull]::Value.Equals($newRow[$propertyName]))
+                {
+                    if ($null -ne $property.Value -and -not ($whitespaceMustBeNull[$propertyName] -and $property.Value -eq ''))
+                    {
+                        try { $newRow[$propertyName] = $property.Value } catch { $newRow[$propertyName] = $property.Value.PSObject.BaseObject }
+                    }
+                }
+                else
+                {
+                    if (-not $unexpected.$propertyName)
+                    {
+                        Write-Warning "InputObject has unexpected property '$propertyName.'"
+                        $unexpected.$propertyName = $true
+                    }
+                }
             }
 
             if ($oldRow)
