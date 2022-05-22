@@ -1358,6 +1358,7 @@ Function Sync-DBRow
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
+        [Parameter()] [string[]] $Keys,
         [Parameter()] [string[]] $SetKeys,
         [Parameter()] [object[]] $SetValues,
         [Parameter()] [object[]] $SetObjects,
@@ -1423,8 +1424,11 @@ Function Sync-DBRow
         }
 
         $keyColumnList = foreach ($col in $dataTable.PrimaryKey) { $col.ColumnName }
+        if ($Keys) { $keyColumnList = $Keys }
+        $readOnlyColumns = [System.Collections.Generic.HashSet[string]]::new()
         $otherColumnList = foreach ($col in $dataTable.Columns)
         {
+            if ($col.AutoIncrement) { $readOnlyColumns.Add($col) }
             if ($keyColumnList -contains $col.ColumnName) { continue }
             $col.ColumnName
         }
@@ -1474,6 +1478,7 @@ Function Sync-DBRow
                 $same = $true
                 foreach ($column in $otherColumnList)
                 {
+                    if ($readOnlyColumns.Contains($column)) { continue }
                     $newValue = $newRow[$column]
                     if ($newValue -is [DateTime]) { $newValue = [System.Data.SqlTypes.SqlDateTime]$newValue }
                     if ($oldRow[$column] -ne $newValue)

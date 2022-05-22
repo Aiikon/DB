@@ -1005,6 +1005,51 @@ Describe 'DB Module' {
             $result2.CountUpdated | Should Be 0
             $result2.CountNoChange | Should Be 1
         }
+
+        It 'Handles identities (single column)' {
+            New-DBTable DBTest -Table SyncIdentity1 -Definition {
+                Define-DBColumn Id int -Required -PrimaryKey -Identity
+                Define-DBColumn ComputerName nvarchar -Length 32 -Required -Unique
+            }
+
+            $result1 = [pscustomobject]@{
+                ComputerName = 'ServerA'
+            } | Sync-DBRow DBTest -Table SyncIdentity1 -Keys ComputerName
+
+            $result1.CountInserted | Should Be 1
+
+            $result2 = [pscustomobject]@{
+                ComputerName = 'ServerA'
+            } | Sync-DBRow DBTest -Table SyncIdentity1 -Keys ComputerName
+
+            $result2.CountInserted | Should Be 0
+            $result2.CountUpdated | Should Be 0
+            $result2.CountNoChange | Should Be 1
+        }
+
+        It 'Handles identities (multiple column)' {
+            New-DBTable DBTest -Table SyncIdentity2 -Definition {
+                Define-DBColumn Id int -Required -PrimaryKey -Identity
+                Define-DBColumn ComputerName nvarchar -Length 32 -Required -Unique
+                Define-DBColumn OS nvarchar
+            }
+
+            $result1 = [pscustomobject]@{
+                ComputerName = 'ServerA'
+                OS = 'Server 2016'
+            } | Sync-DBRow DBTest -Table SyncIdentity2 -Keys ComputerName
+
+            $result1.CountInserted | Should Be 1
+
+            $result2 = [pscustomobject]@{
+                ComputerName = 'ServerA'
+                OS = 'Server 2019'
+            } | Sync-DBRow DBTest -Table SyncIdentity2 -Keys ComputerName
+
+            $result2.CountInserted | Should Be 0
+            $result2.CountUpdated | Should Be 1
+            $result2.CountNoChange | Should Be 0
+        }
     }
 
     Context 'Get/Set/Add/Remove Row Edge Cases' {
