@@ -490,11 +490,11 @@ Function New-DBTable
             $definitionSqlList.Add($columnSql)
             if ($columnDefinition.Unique)
             {
-                $definitionSqlList.Add("    CONSTRAINT [AK_$columnName] UNIQUE ([$columnName])")
+                $definitionSqlList.Add("    CONSTRAINT [AK_${Table}_$columnName] UNIQUE ([$columnName])")
             }
             elseif ($columnDefinition.Index)
             {
-                $definitionSqlList.Add("    INDEX [IX_$columnName] ([$columnName])")
+                $definitionSqlList.Add("    INDEX [IX_${Table}_$columnName] ([$columnName])")
             }
         }
 
@@ -1911,8 +1911,8 @@ Function New-DBIndex
         if (!$Index)
         {
             if ($Column.Count -ne 1) { throw "The Index parameter must be specified if more than one Column is used." }
-            if ($Type -eq 'Unique') { $Index = "AK_$($Column[0])" }
-            else  { $Index = "IX_$($Column[0])" }
+            if ($Type -eq 'Unique') { $Index = "AK_$Table_$($Column[0])" }
+            else  { $Index = "IX_$Table_$($Column[0])" }
         }
 
         $columnNameSql = $(foreach ($c in $Column) { "[$c]" }) -join ','
