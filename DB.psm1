@@ -1360,6 +1360,7 @@ Function Sync-DBRow
         [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
         [Parameter()] [string[]] $SetKeys,
         [Parameter()] [object[]] $SetValues,
+        [Parameter()] [object[]] $SetObjects,
         [Parameter()] [Nullable[int]] $Timeout,
         [Parameter(Mandatory=$true)] [switch] $BetaAcknowledgement
     )
@@ -1378,21 +1379,25 @@ Function Sync-DBRow
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
         $dataTable = [System.Data.DataTable]::new()
         $selectCommand = $dbConnection.ConnectionObject.CreateCommand()
+
+        $startTime = [DateTime]::UtcNow
         
         if ($SetKeys)
         {
-            if ($SetKeys.Count -eq 1 -and $SetValues -and $SetValues[0] -isnot [pscustomobject])
+            if ($PSBoundParameters['SetValues'] -and $PSBoundParameters['SetObjects']) { throw "SetValues and SetObjects cannot be used together." }
+            if ($PSBoundParameters['SetValues'] -and $SetKeys.Count -ne 1) { "SetObjects must be used instead of SetValues if SetKeys count is not 1." }
+            elseif ($PSBoundParameters['SetValues'])
             {
-                $SetValues = foreach ($value in $SetValues)
+                $SetObjects = foreach ($value in $SetValues)
                 {
                     [pscustomobject]@{$SetKeys[0] = $value}
                 }
             }
-            if (!$SetValues)
+            if (!$SetObjects)
             {
-                $SetValues = $inputObjectList | Select-Object -Unique $SetKeys
+                $SetObjects = $inputObjectList | Select-Object -Unique $SetKeys
             }
-            $debug = Get-DBRow $Connection -Schema $Schema -Table $Table -FilterExists $SetValues -DebugOnly
+            $debug = Get-DBRow $Connection -Schema $Schema -Table $Table -FilterExists $SetObjects -DebugOnly
             $selectCommand.CommandText = $debug.Query
             foreach ($pair in $debug.Parameters.GetEnumerator())
             {
@@ -1439,11 +1444,7 @@ Function Sync-DBRow
         $syncRowKeys = @{}
         foreach ($syncRow in $inputObjectList)
         {
-            $keyValue = @(foreach ($primaryKey in $keyColumnList) { $syncRow.$primaryKey }) -join '|'
-            $syncRowKeys[$keyValue] = $true
-            $oldRow = $oldRowDict[$keyValue]
             $newRow = $dataTable.NewRow()
-
             foreach ($property in $syncRow.PSObject.Properties)
             {
                 $propertyName = $property.Name
@@ -1456,20 +1457,26 @@ Function Sync-DBRow
                 }
                 else
                 {
-                    if (-not $unexpected.$propertyName)
+                    if (-not $unexpected[$propertyName])
                     {
                         Write-Warning "InputObject has unexpected property '$propertyName.'"
-                        $unexpected.$propertyName = $true
+                        $unexpected[$propertyName] = $true
                     }
                 }
             }
+
+            $keyValue = @(foreach ($primaryKey in $keyColumnList) { $newRow[$primaryKey] }) -join '|'
+            $syncRowKeys[$keyValue] = $true
+            $oldRow = $oldRowDict[$keyValue]
 
             if ($oldRow)
             {
                 $same = $true
                 foreach ($column in $otherColumnList)
                 {
-                    if ($oldRow[$column] -ne $newRow[$column])
+                    $newValue = $newRow[$column]
+                    if ($newValue -is [DateTime]) { $newValue = [System.Data.SqlTypes.SqlDateTime]$newValue }
+                    if ($oldRow[$column] -ne $newValue)
                     {
                         $oldRow[$column] = $newRow[$column]
                         $same = $false
@@ -1505,6 +1512,7 @@ Function Sync-DBRow
         $result.CountUpdated = $countUpdated
         $result.CountDeleted = $countDeleted
         $result.CountNoChange = $countNoChange
+        $result.Duration = [Math]::Round(([DateTime]::UtcNow - $startTime).TotalMilliseconds,0)
         [pscustomobject]$result
     }
 }
