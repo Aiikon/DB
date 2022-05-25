@@ -1110,6 +1110,34 @@ Describe 'DB Module' {
             Remove-DBTable DBTest -Table AddWithMissing -Confirm:$false
         }
 
+        It 'Update-DBRow -InsertMissing' {
+            New-DBTable DBTest -Table UpdateRowInsertMissing -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn OS nvarchar
+            }
+
+            @(Get-DBRow DBTest -Table UpdateRowInsertMissing).Count | Should Be 0
+
+            [pscustomobject]@{
+                ComputerName = 'ServerA'
+                OS = 'Server 2019'
+            } | Update-DBRow DBTest -Table UpdateRowInsertMissing -InsertMissing
+
+            $result1 = Get-DBRow DBTest -Table UpdateRowInsertMissing
+            @($result1).Count | Should Be 1
+            $result1.OS | Should Be 'Server 2019'
+
+            [pscustomobject]@{
+                ComputerName = 'ServerA'
+                OS = 'Server 2016'
+            } | Update-DBRow DBTest -Table UpdateRowInsertMissing -InsertMissing
+
+            $result2 = Get-DBRow DBTest -Table UpdateRowInsertMissing
+            @($result2).Count | Should Be 1
+            $result2.OS | Should Be 'Server 2016'
+
+        }
+
         It 'DBRow with blank pscustomobject' {
             New-DBTable DBTest -Table TestBlankPsCustomObject -Definition {
                 Define-DBColumn Index int -Required -PrimaryKey

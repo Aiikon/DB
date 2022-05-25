@@ -1297,6 +1297,7 @@ Function Set-DBRow
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(Mandatory=$true)] [hashtable] $Set,
+        [Parameter()] [switch] $ReturnCount,
         [Parameter()] [Nullable[int]] $Timeout,
         [Parameter()] [hashtable] $FilterEq,
         [Parameter()] [hashtable] $FilterNe,
@@ -1341,11 +1342,17 @@ Function Set-DBRow
         }
         $setSql = $setSqlList -join ', '
 
+        $mode = "NonQuery"
         $query = "UPDATE [$Schema].[$Table] SET $setSql$whereSql"
+        if ($ReturnCount)
+        {
+            $mode = 'Scalar'
+            $query = "$query; SELECT @@ROWCOUNT;"
+        }
 
         if ($hasFilter -or $PSCmdlet.ShouldProcess("$Schema.$Table", 'Update All Rows'))
         {
-            Invoke-DBQuery $Connection $query -Mode Scalar -Parameters $parameters -Timeout $Timeout
+            Invoke-DBQuery $Connection $query -Mode $mode -Parameters $parameters -Timeout $Timeout
         }
     }
 }
@@ -1531,6 +1538,8 @@ Function Update-DBRow
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
         [Parameter()] [string[]] $Keys,
+        [Parameter()] [switch] $InsertMissing,
+        [Parameter()] [switch] $BulkCopy,
         [Parameter()] [Nullable[int]] $Timeout
     )
     Begin
@@ -1543,6 +1552,8 @@ Function Update-DBRow
             $finalKeys = Get-DBPrimaryKey -Connection $Connection -Schema $Schema -Table $Table -AsStringArray
         }
         if (!$finalKeys) { throw "$Schema.$Table has no primary keys. The Keys parameter must be provided." }
+        $missingList = [System.Collections.Generic.List[object]]::new()
+        if ($BulkCopy -and !$InsertMissing) { throw "BulkCopy only applies to the Add-DBRow when InsertMissing is specified." }
     }
     Process
     {
@@ -1561,7 +1572,18 @@ Function Update-DBRow
             return
         }
 
-        Set-DBRow -Connection $Connection -Schema $Schema -Table $Table -Set $set -FilterEq $filterEq -Timeout $Timeout
+        $count = Set-DBRow -Connection $Connection -Schema $Schema -Table $Table -Set $set -FilterEq $filterEq -Timeout $Timeout -ReturnCount:$InsertMissing
+        if ($InsertMissing -and $count -eq 0)
+        {
+            $missingList.Add($InputObject)
+        }
+    }
+    End
+    {
+        if ($InsertMissing -and $missingList.Count)
+        {
+            $missingList | Add-DBRow -Connection $Connection -Schema $Schema -Table $Table -BulkCopy:$BulkCopy -Timeout:$Timeout
+        }
     }
 }
 
