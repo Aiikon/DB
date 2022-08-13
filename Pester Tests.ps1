@@ -1,7 +1,5 @@
 Import-Module $PSScriptRoot -Force -DisableNameChecking
 
-$PSDefaultParameterValues["Sync-DBRow:BetaAcknowledgement"] = $true
-
 Describe 'DB Module' {
     Initialize-DBConnectionToLocalDB DBTest -FilePath C:\Temp\DBTest.mdf -DefaultSchema Tests
     
@@ -729,7 +727,7 @@ Describe 'DB Module' {
             [pscustomobject]@{
                 ComputerName = 'SimpleServer'
                 OperatingSystem = 'Server 2016'
-            } | Sync-DBRow DBTest -Table SyncRowBasic
+            } | Sync-DBRow DBTest -Table SyncRowBasic -Mode AllRows
 
             $result1 = Get-DBRow DBTest -Table SyncRowBasic -FilterEq @{ComputerName='SimpleServer'}
             $result1.ComputerName | Should Be 'SimpleServer'
@@ -738,7 +736,7 @@ Describe 'DB Module' {
             [pscustomobject]@{
                 ComputerName = 'SimpleServer'
                 OperatingSystem = 'Server 2019'
-            } | Sync-DBRow DBTest -Table SyncRowBasic
+            } | Sync-DBRow DBTest -Table SyncRowBasic -Mode AllRows
 
             $result2 = Get-DBRow DBTest -Table SyncRowBasic -FilterEq @{ComputerName='SimpleServer'}
             $result2.ComputerName | Should Be 'SimpleServer'
@@ -747,7 +745,7 @@ Describe 'DB Module' {
             [pscustomobject]@{
                 ComputerName = 'NewServer'
                 OperatingSystem = 'Server 2022'
-            } | Sync-DBRow DBTest -Table SyncRowBasic
+            } | Sync-DBRow DBTest -Table SyncRowBasic -Mode AllRows
 
             Get-DBRow DBTest -Table SyncRowBasic
 
@@ -775,7 +773,7 @@ Describe 'DB Module' {
                     ComputerName = 'LinuxSetServer'
                     OperatingSystem = 'Debian'
                 }
-            ) | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName
+            ) | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName -Mode SetOnly
 
             $result1 = Get-DBRow DBTest -Table SyncRowSet -OrderBy ComputerName
             @($result1).Count | Should Be 2
@@ -787,7 +785,7 @@ Describe 'DB Module' {
             [pscustomobject]@{
                 ComputerName = 'WindowsSetServer'
                 OperatingSystem = 'Server 2019'
-            } | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName
+            } | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName -Mode SetOnly
 
             $result2 = Get-DBRow DBTest -Table SyncRowSet -OrderBy ComputerName
             @($result2).Count | Should Be 2
@@ -799,7 +797,7 @@ Describe 'DB Module' {
             [pscustomobject]@{
                 ComputerName = 'LinuxSetServer'
                 OperatingSystem = 'RedHat'
-            } | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName -SetValues 'LinuxSetServer'
+            } | Sync-DBRow DBTest -Table SyncRowSet -SetKeys ComputerName -SetValues 'LinuxSetServer' -Mode SetOnly
 
             $result2 = Get-DBRow DBTest -Table SyncRowSet -OrderBy ComputerName
             @($result2).Count | Should Be 2
@@ -824,7 +822,7 @@ Describe 'DB Module' {
                     Text = $_.ToString()
                 }
             } |
-                Sync-DBRow DBTest -Table SyncBulkTest
+                Sync-DBRow DBTest -Table SyncBulkTest -Mode AllRows
 
             $result1.CountInput | Should Be 20
             $result1.CountInserted | Should Be 20
@@ -842,7 +840,7 @@ Describe 'DB Module' {
                     Text = $_.ToString()
                 }
             } |
-                Sync-DBRow DBTest -Table SyncBulkTest
+                Sync-DBRow DBTest -Table SyncBulkTest -Mode AllRows
 
             $result1.CountInput | Should Be 20
             $result1.CountInserted | Should Be 0
@@ -860,7 +858,7 @@ Describe 'DB Module' {
                     Text = $_.ToString()
                 }
             } |
-                Sync-DBRow DBTest -Table SyncBulkTest
+                Sync-DBRow DBTest -Table SyncBulkTest -Mode AllRows
 
             $result1.CountInput | Should Be 20
             $result1.CountInserted | Should Be 0
@@ -880,7 +878,7 @@ Describe 'DB Module' {
                 }
             } |
                 Where-Object Mod -eq 0 |
-                Sync-DBRow DBTest -Table SyncBulkTest -SetKeys Mod -SetValues 0
+                Sync-DBRow DBTest -Table SyncBulkTest -SetKeys Mod -SetValues 0 -Mode SetOnly
 
             $result1.CountInput | Should Be 5
             $result1.CountInserted | Should Be 0
@@ -901,7 +899,7 @@ Describe 'DB Module' {
             } |
                 Where-Object Index -gt 10 |
                 Where-Object Mod -eq 0 |
-                Sync-DBRow DBTest -Table SyncBulkTest -SetKeys Mod -SetObjects ([pscustomobject]@{Mod=0})
+                Sync-DBRow DBTest -Table SyncBulkTest -SetKeys Mod -SetObjects ([pscustomobject]@{Mod=0}) -Mode SetOnly
 
             $result1.CountInput | Should Be 3
             $result1.CountInserted | Should Be 0
@@ -912,7 +910,7 @@ Describe 'DB Module' {
         }
 
         It 'Bulk Tests - Remove All' {
-            $result1 = @() | Sync-DBRow DBTest -Table SyncBulkTest -SetKeys Mod -SetValues 0, 1, 2, 3
+            $result1 = @() | Sync-DBRow DBTest -Table SyncBulkTest -SetKeys Mod -SetValues 0, 1, 2, 3 -Mode SetOnly
             $result1.CountInput | Should Be 0
             $result1.CountInserted | Should Be 0
             $result1.CountUpdated | Should Be 0
@@ -929,14 +927,14 @@ Describe 'DB Module' {
             $result1 = @(
                 [pscustomobject]@{ComputerName='ServerA'; DomainName='DomainA'}
                 [pscustomobject]@{ComputerName='ServerA'; DomainName='DomainB'}
-            ) | Sync-DBRow DBTest -Table SyncKeyOnly
+            ) | Sync-DBRow DBTest -Table SyncKeyOnly -Mode AllRows
 
             $result1.CountInserted | Should Be 2
 
             $result2 = @(
                 [pscustomobject]@{ComputerName='ServerA'; DomainName='DomainA'}
                 [pscustomobject]@{ComputerName='ServerB'; DomainName='DomainB'}
-            ) | Sync-DBRow DBTest -Table SyncKeyOnly
+            ) | Sync-DBRow DBTest -Table SyncKeyOnly -Mode AllRows
 
             $result2.CountInserted | Should Be 1
             $result2.CountDeleted | Should Be 1
@@ -948,7 +946,7 @@ Describe 'DB Module' {
             }
 
             [pscustomobject]@{ComputerName='ServerA'; ExtraField='A'} |
-                Sync-DBRow DBTest -Table SyncExtraColumns -WarningAction SilentlyContinue
+                Sync-DBRow DBTest -Table SyncExtraColumns -WarningAction SilentlyContinue -Mode AllRows
         }
 
         It 'Handles null values' {
@@ -960,12 +958,12 @@ Describe 'DB Module' {
             [pscustomobject]@{
                 ComputerName = 'ServerA'
                 PasswordLastSet = $null
-            } | Sync-DBRow DBTest -Table SyncNullValues
+            } | Sync-DBRow DBTest -Table SyncNullValues -Mode AllRows
 
             [pscustomobject]@{
                 ComputerName = 'ServerA'
                 PasswordLastSet = $(if ($false) { [datetime]::Today })
-            } | Sync-DBRow DBTest -Table SyncNullValues
+            } | Sync-DBRow DBTest -Table SyncNullValues -Mode AllRows
         }
 
         It 'Handles .net datetime having more granularity than SQL' {
@@ -979,10 +977,10 @@ Describe 'DB Module' {
                 PasswordLastChanged = [DateTime]::Today.AddTicks(1)
             }
 
-            $result1 = $object | Sync-DBRow DBTest -Table SyncDateTime
+            $result1 = $object | Sync-DBRow DBTest -Table SyncDateTime -Mode AllRows
             $result1.CountInserted | Should Be 1
 
-            $result2 = $object | Sync-DBRow DBTest -Table SyncDateTime
+            $result2 = $object | Sync-DBRow DBTest -Table SyncDateTime -Mode AllRows
             $result2.CountUpdated | Should Be 0
             $result2.CountNoChange | Should Be 1
         }
@@ -998,10 +996,10 @@ Describe 'DB Module' {
                 ObjectId = "{e8031683-77cb-4644-8b4e-96b8f08802cc}"
             }
 
-            $result1 = $object | Sync-DBRow DBTest -Table SyncGuid
+            $result1 = $object | Sync-DBRow DBTest -Table SyncGuid -Mode AllRows
             $result1.CountInserted | Should Be 1
 
-            $result2 = $object | Sync-DBRow DBTest -Table SyncGuid
+            $result2 = $object | Sync-DBRow DBTest -Table SyncGuid -Mode AllRows
             $result2.CountUpdated | Should Be 0
             $result2.CountNoChange | Should Be 1
         }
@@ -1014,13 +1012,13 @@ Describe 'DB Module' {
 
             $result1 = [pscustomobject]@{
                 ComputerName = 'ServerA'
-            } | Sync-DBRow DBTest -Table SyncIdentity1 -Keys ComputerName
+            } | Sync-DBRow DBTest -Table SyncIdentity1 -Keys ComputerName -Mode AllRows
 
             $result1.CountInserted | Should Be 1
 
             $result2 = [pscustomobject]@{
                 ComputerName = 'ServerA'
-            } | Sync-DBRow DBTest -Table SyncIdentity1 -Keys ComputerName
+            } | Sync-DBRow DBTest -Table SyncIdentity1 -Keys ComputerName -Mode AllRows
 
             $result2.CountInserted | Should Be 0
             $result2.CountUpdated | Should Be 0
@@ -1037,18 +1035,129 @@ Describe 'DB Module' {
             $result1 = [pscustomobject]@{
                 ComputerName = 'ServerA'
                 OS = 'Server 2016'
-            } | Sync-DBRow DBTest -Table SyncIdentity2 -Keys ComputerName
+            } | Sync-DBRow DBTest -Table SyncIdentity2 -Keys ComputerName -Mode AllRows
 
             $result1.CountInserted | Should Be 1
 
             $result2 = [pscustomobject]@{
                 ComputerName = 'ServerA'
                 OS = 'Server 2019'
-            } | Sync-DBRow DBTest -Table SyncIdentity2 -Keys ComputerName
+            } | Sync-DBRow DBTest -Table SyncIdentity2 -Keys ComputerName -Mode AllRows
 
             $result2.CountInserted | Should Be 0
             $result2.CountUpdated | Should Be 1
             $result2.CountNoChange | Should Be 0
+        }
+
+        It 'Supports Mode InsertUpdateOnly' {
+            New-DBTable DBTest -Table SyncInsertUpdateOnly -Force -Confirm:$false -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 64 -Required -PrimaryKey
+                Define-DBColumn OS nvarchar
+            }
+
+            [pscustomobject]@{ComputerName='ServerA'; OS='Server 2019'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+            [pscustomobject]@{ComputerName='ServerB'; OS='Server 2016'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+
+            $result1 = @(
+                [pscustomobject]@{ComputerName='ServerA'; OS='Server 2022'}
+                [pscustomobject]@{ComputerName='ServerC'; OS='Linux'}
+            ) | Sync-DBRow DBTest -Table SyncInsertUpdateOnly -Mode InsertUpdateOnly
+
+            $result1.CountInput | Should Be 2
+            $result1.CountInserted | Should Be 1
+            $result1.CountUpdated | Should Be 1
+            $result1.CountDeleted | Should Be 0
+            $result1.CountNoChange | Should Be 0
+
+            $result2 = Get-DBRow DBTest -Table SyncInsertUpdateOnly
+            @($result2).Count | Should Be 3
+        }
+
+        It 'WhatIf' {
+            New-DBTable DBTest -Table SyncInsertUpdateOnly -Force -Confirm:$false -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 64 -Required -PrimaryKey
+                Define-DBColumn OS nvarchar
+            }
+
+            [pscustomobject]@{ComputerName='ServerA'; OS='Server 2019'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+            [pscustomobject]@{ComputerName='ServerB'; OS='Server 2016'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+
+            $result1 = @(
+                [pscustomobject]@{ComputerName='ServerA'; OS='Server 2022'}
+                [pscustomobject]@{ComputerName='ServerC'; OS='Linux'}
+            ) | Sync-DBRow DBTest -Table SyncInsertUpdateOnly -Mode AllRows -WhatIf
+
+            $result1.CountInput | Should Be 2
+            $result1.CountInserted | Should Be 1
+            $result1.CountUpdated | Should Be 1
+            $result1.CountDeleted | Should Be 1
+            $result1.CountNoChange | Should Be 0
+
+            $result2 = Get-DBRow DBTest -Table SyncInsertUpdateOnly
+            @($result2).Count | Should Be 2
+        }
+
+        It 'Empty input with no SetKeys' {
+            New-DBTable DBTest -Table SyncInsertUpdateOnly -Force -Confirm:$false -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 64 -Required -PrimaryKey
+                Define-DBColumn OS nvarchar
+            }
+
+            [pscustomobject]@{ComputerName='ServerA'; OS='Server 2019'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+            [pscustomobject]@{ComputerName='ServerB'; OS='Server 2016'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+
+            $result1 = @() | Sync-DBRow DBTest -Table SyncInsertUpdateOnly -Mode AllRows
+            
+            $result1.CountInput | Should Be 0
+            $result1.CountInserted | Should Be 0
+            $result1.CountUpdated | Should Be 0
+            $result1.CountDeleted | Should Be 2
+            $result1.CountNoChange | Should Be 0
+
+            $result2 = Get-DBRow DBTest -Table SyncInsertUpdateOnly
+            @($result2).Count | Should Be 0
+        }
+
+        It 'Empty input with SetKeys and SetValues' {
+            New-DBTable DBTest -Table SyncInsertUpdateOnly -Force -Confirm:$false -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 64 -Required -PrimaryKey
+                Define-DBColumn OS nvarchar
+            }
+
+            [pscustomobject]@{ComputerName='ServerA'; OS='Server 2019'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+            [pscustomobject]@{ComputerName='ServerB'; OS='Server 2016'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+
+            $result1 = @() | Sync-DBRow DBTest -Table SyncInsertUpdateOnly -Mode SetOnly -SetKeys ComputerName -SetValues ServerA
+            
+            $result1.CountInput | Should Be 0
+            $result1.CountInserted | Should Be 0
+            $result1.CountUpdated | Should Be 0
+            $result1.CountDeleted | Should Be 1
+            $result1.CountNoChange | Should Be 0
+
+            $result2 = Get-DBRow DBTest -Table SyncInsertUpdateOnly
+            @($result2).Count | Should Be 1
+        }
+
+        It 'Empty input with Mode InsertUpdateOnly' {
+            New-DBTable DBTest -Table SyncInsertUpdateOnly -Force -Confirm:$false -Definition {
+                Define-DBColumn ComputerName nvarchar -Length 64 -Required -PrimaryKey
+                Define-DBColumn OS nvarchar
+            }
+
+            [pscustomobject]@{ComputerName='ServerA'; OS='Server 2019'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+            [pscustomobject]@{ComputerName='ServerB'; OS='Server 2016'} | Add-DBRow DBTest -Table SyncInsertUpdateOnly
+
+            $result1 = @() | Sync-DBRow DBTest -Table SyncInsertUpdateOnly -Mode InsertUpdateOnly
+            
+            $result1.CountInput | Should Be 0
+            $result1.CountInserted | Should Be 0
+            $result1.CountUpdated | Should Be 0
+            $result1.CountDeleted | Should Be 0
+            $result1.CountNoChange | Should Be 0
+
+            $result2 = Get-DBRow DBTest -Table SyncInsertUpdateOnly
+            @($result2).Count | Should Be 2
         }
     }
 

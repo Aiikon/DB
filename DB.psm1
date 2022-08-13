@@ -1365,22 +1365,29 @@ Function Set-DBRow
 
 Function Sync-DBRow
 {
+    [CmdletBinding(SupportsShouldProcess=$true)]
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(ValueFromPipeline=$true)] [object] $InputObject,
+        [Parameter(Mandatory=$true)] [ValidateSet('AllRows', 'SetOnly', 'InsertUpdateOnly')] [string] $Mode,
         [Parameter()] [string[]] $Keys,
         [Parameter()] [string[]] $SetKeys,
         [Parameter()] [object[]] $SetValues,
         [Parameter()] [object[]] $SetObjects,
-        [Parameter()] [Nullable[int]] $Timeout,
-        [Parameter(Mandatory=$true)] [switch] $BetaAcknowledgement
+        [Parameter()] [Nullable[int]] $Timeout
     )
     Begin
     {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
         $inputObjectList = [System.Collections.Generic.List[object]]::new()
+        if ($Mode -eq 'AllRows' -and $SetKeys) { throw "SetKeys cannot be used with AllRows." }
+        if ($Mode -eq 'SetOnly' -and !$SetKeys) { throw "SetKeys must be used with Mode SetOnly." }
+        if (($PSBoundParameters['SetValues'] -or $PSBoundParameters['SetObjects']) -and !$SetKeys) { throw "SetKeys must be used if SetObjects or SetValues are used." }
+        if ($PSBoundParameters['SetValues'] -and $PSBoundParameters['SetObjects']) { throw "SetValues and SetObjects cannot be used together." }
+        if ($PSBoundParameters['SetValues'] -and $SetKeys.Count -ne 1) { "SetObjects must be used instead of SetValues if SetKeys count is not 1." }
     }
     Process
     {
@@ -1398,9 +1405,7 @@ Function Sync-DBRow
         
         if ($SetKeys)
         {
-            if ($PSBoundParameters['SetValues'] -and $PSBoundParameters['SetObjects']) { throw "SetValues and SetObjects cannot be used together." }
-            if ($PSBoundParameters['SetValues'] -and $SetKeys.Count -ne 1) { "SetObjects must be used instead of SetValues if SetKeys count is not 1." }
-            elseif ($PSBoundParameters['SetValues'])
+            if ($PSBoundParameters['SetValues'])
             {
                 $SetObjects = foreach ($value in $SetValues)
                 {
@@ -1509,14 +1514,20 @@ Function Sync-DBRow
             }
         }
 
-        foreach ($pair in $oldRowDict.GetEnumerator())
+        if ($Mode -ne 'InsertUpdateOnly')
         {
-            if ($syncRowKeys[$pair.Key]) { continue }
-            $oldRowDict[$pair.Key].Delete()
-            $countDeleted += 1
+            foreach ($pair in $oldRowDict.GetEnumerator())
+            {
+                if ($syncRowKeys[$pair.Key]) { continue }
+                $oldRowDict[$pair.Key].Delete()
+                $countDeleted += 1
+            }
         }
 
-        [void]$tableAdapter.Update($dataTable)
+        if ($PSCmdlet.ShouldProcess("$Schema.$Table", 'Sync Rows'))
+        {
+            [void]$tableAdapter.Update($dataTable)
+        }
         $dataTable.Dispose()
         $tableAdapter.Dispose()
         $commandBuilder.Dispose()
