@@ -655,9 +655,9 @@ Function New-DBView
     {
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
 
-        if ($Force -and (Get-DBTable $Connection -Schema $Schema -Table $View) -and $PSCmdlet.ShouldProcess("$Schema.$View", 'Drop View'))
+        if ($Force -and $PSCmdlet.ShouldProcess("$Schema.$View", 'Drop View'))
         {
-            Remove-DBView $Connection -Schema $Schema -View $View -Confirm:$false
+            Invoke-DBQuery $Connection "IF OBJECT_ID('[$Schema].[$View]') IS NOT NULL DROP VIEW [$Schema].[$View]" -Mode NonQuery | Out-Null
         }
 
         Invoke-DBQuery $Connection "CREATE VIEW [$Schema].[$View] AS $SQL"
