@@ -442,14 +442,15 @@ Function Get-DBTable
 
 Function New-DBTable
 {
-    [CmdletBinding(PositionalBinding=$false)]
+    [CmdletBinding(PositionalBinding=$false, SupportsShouldProcess=$true, ConfirmImpact='High')]
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(Mandatory=$true)] [scriptblock] $Definition,
-        [Parameter()] [switch] $DebugOnly
+        [Parameter()] [switch] $DebugOnly,
+        [Parameter()] [switch] $Force
     )
     End
     {
@@ -544,13 +545,18 @@ Function New-DBTable
 
         if ($DebugOnly) { return [pscustomobject]@{Query=$tableSql -join "`r`n"; Parameters=@{}} }
 
+        if ($Force -and $PSCmdlet.ShouldProcess("$Schema.$Table", 'Drop Table'))
+        {
+            Invoke-DBQuery $Connection "IF OBJECT_ID('[$Schema].[$Table]') IS NOT NULL DROP TABLE [$Schema].[$Table]" -Mode NonQuery | Out-Null
+        }
+
         Invoke-DBQuery $Connection ($tableSql -join "`r`n") -Mode NonQuery | Out-Null
     }
 }
 
 Function Remove-DBTable
 {
-    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
+    [CmdletBinding(PositionalBinding=$false, SupportsShouldProcess=$true, ConfirmImpact='High')]
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
