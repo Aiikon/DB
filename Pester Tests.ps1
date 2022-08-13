@@ -1606,6 +1606,45 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Identity Load Table' {
+        It 'Works (Syntax Check)' {
+
+            New-DBTable DBTest -Table Zip -Definition {
+                Define-DBColumn ZipCodeId int -Required -PrimaryKey
+                Define-DBColumn City nvarchar -Length 256 -Required
+            }
+
+            New-DBLookupTable DBTest -InstanceTable ILTest_Instance -ViewTable ILTest -LoadTable Load_ILTest -LoadProcedureName Load_ILTests -Definition {
+                Define-DBColumn Username nvarchar -Length 64 -Required -PrimaryKey
+                Define-DBColumn Name nvarchar -Length 256 -Required
+                Define-DBColumn JobTitle nvarchar -Length 256 -ForeignTable Job
+                Define-DBColumn JobCode int -ForeignTable Job
+                Define-DBColumn ZipCode int -ForeignTable Zip -ForeignColumn ZipCodeId
+                Define-DBLookupRelationship -ForeignTable Job -Type ReadWrite -LocalColumn JobId
+                Define-DBLookupRelationship -ForeignTable Zip -Type ReadOnly
+            }
+        }
+
+        It 'Works (Reality Check)' {
+
+        }
+    }
+
+    Context 'Stored Procedures' {
+        It 'New-DBStoredProcedure' {
+            
+        }
+
+        It 'Get-DBStoredProcedure'
+        It 'Remove-DBStoredProcedure'
+        It 'Update-DBStoredProcedure'
+        It 'Invoke-DBStoredProcedure'
+    }
+
+    Context 'Drop Constraints to Rename' {
+        It 'Invoke-DBChangeValueWithoutConstraints'
+    }
+
     Context 'Edge Cases' {
         
         It 'Uses the right table abbreviations when self-joining' {
@@ -1662,6 +1701,61 @@ Describe 'DB Module' {
             [pscustomobject]@{
                 ComputerName='ABCDEFG'
             } | Add-DBRow DBTest -Table NullTest1
+        }
+
+        It "Add-DBRow -BulkCopy int column that's empty" {
+            New-DBTable DBTest -Table BulkCopyNullInt -Definition {
+                Define-DBColumn Pkey nvarchar -Length 15 -Required -PrimaryKey
+                Define-DBColumn Count int
+            }
+
+            @(
+                [pscustomobject]@{PKey='A'; Count=1}
+                [pscustomobject]@{PKey='B'; Count=$null}
+            ) | Add-DBRow DBTest -Table BulkCopyNullInt -BulkCopy
+
+            $rows = Get-DBRow DBTest -Table BulkCopyNullInt
+
+            Remove-DBRow DBTest -Table BulkCopyNullInt -Confirm:$false
+            $rows | Add-DBRow DBTest -Table BulkCopyNullInt -BulkCopy
+
+            $xml = [System.Management.Automation.PSSerializer]::Serialize($rows)
+            Remove-DBRow DBTest -Table BulkCopyNullInt -Confirm:$false
+            [System.Management.Automation.PSSerializer]::Deserialize($xml) |
+                Add-DBRow DBTest -Table BulkCopyNullInt -BulkCopy
+        }
+
+        It "Remove-DBColumn with Add-DBRow -BulkCopy being offset" {
+            New-DBTable DBTest -Table BulkCopyGap -Definition {
+                Define-DBColumn Pkey nvarchar -Length 15 -Required -PrimaryKey
+                Define-DBColumn A int
+                Define-DBColumn B nvarchar
+            }
+
+            [pscustomobject]@{
+                PKey = 'A'
+                B = 'One'
+            } | Add-DBRow DBTest -Table BulkCopyGap -BulkCopy
+        }
+
+        It "Get-DBRow -Joins -Column A" {
+            throw 'No'
+        }
+
+        It "Get-DBRow -Joins -Column *" {
+            throw 'No'
+        }
+
+        It "Get-DBRow -Column * -Joins -Column A" {
+            throw 'No'
+        }
+
+        It "Get-DBRow -Column * -Joins -Column *" {
+            throw 'No'
+        }
+
+        It "Get-DBRow -Column A -Joins -Column *" {
+            throw 'No'
         }
     }
 
