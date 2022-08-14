@@ -1674,30 +1674,6 @@ Describe 'DB Module' {
         }
     }
 
-    Context 'Identity Load Table' {
-        It 'Works (Syntax Check)' {
-
-            New-DBTable DBTest -Table Zip -Definition {
-                Define-DBColumn ZipCodeId int -Required -PrimaryKey
-                Define-DBColumn City nvarchar -Length 256 -Required
-            }
-
-            New-DBLookupTable DBTest -InstanceTable ILTest_Instance -ViewTable ILTest -LoadTable Load_ILTest -LoadProcedureName Load_ILTests -Definition {
-                Define-DBColumn Username nvarchar -Length 64 -Required -PrimaryKey
-                Define-DBColumn Name nvarchar -Length 256 -Required
-                Define-DBColumn JobTitle nvarchar -Length 256 -ForeignTable Job
-                Define-DBColumn JobCode int -ForeignTable Job
-                Define-DBColumn ZipCode int -ForeignTable Zip -ForeignColumn ZipCodeId
-                Define-DBLookupRelationship -ForeignTable Job -Type ReadWrite -LocalColumn JobId
-                Define-DBLookupRelationship -ForeignTable Zip -Type ReadOnly
-            }
-        }
-
-        It 'Works (Reality Check)' {
-
-        }
-    }
-
     Context 'Drop Constraints to Rename' {
         It 'Invoke-DBChangeValueWithoutConstraints'
     }
@@ -1793,26 +1769,6 @@ Describe 'DB Module' {
                 PKey = 'A'
                 B = 'One'
             } | Add-DBRow DBTest -Table BulkCopyGap -BulkCopy
-        }
-
-        It "Get-DBRow -Joins -Column A" {
-            throw 'No'
-        }
-
-        It "Get-DBRow -Joins -Column *" {
-            throw 'No'
-        }
-
-        It "Get-DBRow -Column * -Joins -Column A" {
-            throw 'No'
-        }
-
-        It "Get-DBRow -Column * -Joins -Column *" {
-            throw 'No'
-        }
-
-        It "Get-DBRow -Column A -Joins -Column *" {
-            throw 'No'
         }
     }
 
