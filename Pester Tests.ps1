@@ -13,6 +13,8 @@ Describe 'DB Module' {
     Get-DBTable DBTest -TableType View |
         ForEach-Object { Remove-DBView DBTest -Schema $_.Schema -View $_.Table -Confirm:$false }
 
+    Get-DBStoredProcedure DBTest | Remove-DBStoredProcedure DBTest -Confirm:$false
+
     try { Remove-DBSchema DBTest -Schema Tests -Confirm:$false -ErrorAction Stop } catch { }
     try { Remove-DBSchema DBTest -Schema TableHerring -Confirm:$false -ErrorAction Stop } catch { }
 
@@ -1418,6 +1420,72 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Stored Procedures' {
+        It 'New-DBStoredProcedure (Syntax Check)' {
+            $result1 = New-DBStoredProcedure DBTest -StoredProcedure 'prTest1' -SQL "INSERT INTO SPTest1 (ComputerName, OS) VALUES (@ComputerName, @OS)" -Arguments @{ComputerName='VARCHAR(32)';OS='VARCHAR'} -DebugOnly
+
+            $result1.Query | Should Be ("
+            CREATE PROCEDURE [Tests].[prTest1](@ComputerName VARCHAR(32), @OS VARCHAR)
+            AS
+            BEGIN
+            INSERT INTO SPTest1 (ComputerName, OS) VALUES (@ComputerName, @OS)
+            END
+            " -replace '(?m)^ {12}').Trim()
+        }
+
+        It 'New-DBStoredProcedure (Reality Check)' {
+            New-DBTable DBTest -Table SPTest1 -Force -Confirm:$false -Definition {
+                Define-DBColumn ComputerName varchar -Length 32 -Required -PrimaryKey
+                Define-DBColumn OS varchar
+            }
+
+            New-DBStoredProcedure DBTest -StoredProcedure 'prTest1' -SQL "INSERT INTO SPTest1 (ComputerName, OS) VALUES (@ComputerName, @OS)" -Arguments @{ComputerName='VARCHAR(32)';OS='VARCHAR'}
+
+            $result1 = Get-DBRow DBTest -Table SPTest1
+            @($result1).Count | Should Be 0
+
+            Invoke-DBQuery DBTest "EXEC Tests.prTest1 @ComputerName='ServerA', @OS='Server2019'"
+
+            $result2 = Get-DBRow DBTest -Table SPTest1
+            @($result2).Count | Should Be 1
+            $result2.ComputerName | Should Be 'ServerA'
+        }
+
+        It 'Get-DBStoredProcedure' {
+            New-DBStoredProcedure DBTest -StoredProcedure 'prGetTest1' -SQL "INSERT INTO SPTest1 (ComputerName, OS) VALUES ('A', 'B')"
+            New-DBStoredProcedure DBTest -StoredProcedure 'prGetTest2' -SQL "INSERT INTO SPTest1 (ComputerName, OS) VALUES ('A', 'B')"
+            
+            $result1 = Get-DBStoredProcedure DBTest
+            @($result1 | Where-Object StoredProcedure -in 'prGetTest1', 'prGetTest2').Count | Should Be 2
+
+            $result2 = Get-DBStoredProcedure DBTest -StoredProcedure prGetTest2
+            @($result2).Count | Should Be 1
+            $result2.StoredProcedure | Should Be prGetTest2
+        }
+
+        It 'New-DBStoredProcedure -Force' {
+            New-DBStoredProcedure DBTest -StoredProcedure 'prForceTest1' -SQL "INSERT INTO SPTest1 (ComputerName, OS) VALUES ('A', 'B')"
+            $result1 = Get-DBStoredProcedure DBTest -StoredProcedure prForceTest1
+            $result1.StoredProcedure | Should Be prForceTest1
+
+            New-DBStoredProcedure DBTest -StoredProcedure 'prForceTest1' -SQL "INSERT INTO SPTest1 (ComputerName, OS) VALUES ('A', 'B')" -Force
+            $result2 = Get-DBStoredProcedure DBTest -StoredProcedure prForceTest1
+            $result2.StoredProcedure | Should Be prForceTest1
+        }
+
+        It 'Remove-DBStoredProcedure' {
+            New-DBStoredProcedure DBTest -StoredProcedure 'prRemoveTest1' -SQL "INSERT INTO SPTest1 (ComputerName, OS) VALUES ('A', 'B')"
+            
+            $result1 = Get-DBStoredProcedure DBTest -StoredProcedure prRemoveTest1
+            $result1.StoredProcedure | Should Be prRemoveTest1
+
+            Remove-DBStoredProcedure DBTest -StoredProcedure 'prRemoveTest1' -Confirm:$false
+
+            $result2 = Get-DBStoredProcedure DBTest -StoredProcedure prRemoveTest1
+            @($result2).Count | Should Be 0
+        }
+    }
+
     Context 'Audit Tables' {
         try { Remove-DBTable DBTest -Table AuditTest -Confirm:$false -ErrorAction Stop } catch { }
         try { Remove-DBAuditTable DBTest -Table AuditTest -Confirm:$false -ErrorAction SilentlyContinue } catch { }
@@ -1628,17 +1696,6 @@ Describe 'DB Module' {
         It 'Works (Reality Check)' {
 
         }
-    }
-
-    Context 'Stored Procedures' {
-        It 'New-DBStoredProcedure' {
-            
-        }
-
-        It 'Get-DBStoredProcedure'
-        It 'Remove-DBStoredProcedure'
-        It 'Update-DBStoredProcedure'
-        It 'Invoke-DBStoredProcedure'
     }
 
     Context 'Drop Constraints to Rename' {

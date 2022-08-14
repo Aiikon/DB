@@ -2303,7 +2303,7 @@ Function Get-DBForeignKeyConstraint
 
 Function New-DBForeignKeyConstraint
 {
-    [CmdletBinding(PositionalBinding=$false)]
+    [CmdletBinding(PositionalBinding=$false,SupportsShouldProcess=$true)]
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
@@ -2334,7 +2334,115 @@ Function New-DBForeignKeyConstraint
         if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Constraint", 'Create Foreign Key Constraint'))
         {
             if ($DebugOnly) { return [pscustomobject]@{Query=$query.ToString(); Parameters=@{}} }
-            Invoke-DBQuery $Connection -Mode NonQuery -Query $query.ToString()
+            $null = Invoke-DBQuery $Connection -Mode NonQuery -Query $query.ToString()
+        }
+    }
+}
+
+Function New-DBStoredProcedure
+{
+    [CmdletBinding(PositionalBinding=$false,SupportsShouldProcess=$true)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
+        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $StoredProcedure,
+        [Parameter(Mandatory=$true)] [string] $SQL,
+        [Parameter()] [System.Collections.IDictionary] $Arguments,
+        [Parameter()] [switch] $DebugOnly,
+        [Parameter()] [switch] $Force
+    )
+    End
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        $query = [System.Text.StringBuilder]::new()
+        [void]$query.Append("CREATE PROCEDURE [$Schema].[$StoredProcedure]")
+        if ($Arguments)
+        {
+            [void]$query.Append("(")
+            $i = 0
+            foreach ($pair in $Arguments.GetEnumerator())
+            {
+                if ($i -ge 1) { [void]$query.Append(', ') }
+                [void]$query.Append("@$($pair.Key) $($pair.Value)")
+                $i += 1
+            }
+            [void]$query.Append(")")
+        }
+        [void]$query.Append("`r`nAS`r`nBEGIN`r`n")
+        [void]$query.Append($SQL)
+        [void]$query.Append("`r`nEND")
+        
+        if ($PSCmdlet.ShouldProcess("$Schema.$StoredProcedure", 'Create Stored Procedure'))
+        {
+            if ($Force)
+            {
+                $null = Invoke-DBQuery $Connection "IF OBJECT_ID('[$Schema].[$StoredProcedure]') IS NOT NULL DROP PROCEDURE [$Schema].[$StoredProcedure]" -Mode NonQuery
+            }
+
+            if ($DebugOnly) { return [pscustomobject]@{Query=$query.ToString(); Parameters=@{}} }
+            $null = Invoke-DBQuery $Connection -Mode NonQuery -Query $query.ToString()
+        }
+    }
+}
+
+Function Get-DBStoredProcedure
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $StoredProcedure,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    End
+    {
+        trap { $PSCmdlet.ThrowTerminatingError($_) }
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+        
+        $filterSqlList = @()
+        $parameters = @{}
+        if ($StoredProcedure)
+        {
+            $filterSqlList += "p.name = @StoredProcedure"
+            $parameters.StoredProcedure = $StoredProcedure
+        }
+        if ($PSBoundParameters['Schema'] -or $StoredProcedure)
+        {
+            $filterSqlList += "s.name = @Schema"
+            $parameters.Schema = $Schema
+        }
+        $filterSql = $filterSqlList -join ' AND '
+        if ($filterSql) { $filterSql = "AND $filterSql" }
+
+        Invoke-DBQuery $Connection -Parameters $parameters -ErrorAction Stop -Query "
+            SELECT
+                p.name [StoredProcedure],
+                s.name [Schema]
+            FROM sys.procedures p
+                INNER JOIN sys.schemas s ON p.schema_id = s.schema_id
+            WHERE p.is_ms_shipped = 0 $filterSql
+            ORDER BY s.name, p.name
+        "
+    }
+}
+
+Function Remove-DBStoredProcedure
+{
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High', PositionalBinding=$false)]
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter(ValueFromPipelineByPropertyName=$true,Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $StoredProcedure,
+        [Parameter(ValueFromPipelineByPropertyName=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema
+    )
+    Process
+    {
+        $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
+
+        if ($PSCmdlet.ShouldProcess("$Schema.$StoredProcedure", 'Drop Stored Procedure'))
+        {
+            Invoke-DBQuery $Connection "DROP PROCEDURE [$Schema].[$StoredProcedure]"
         }
     }
 }
