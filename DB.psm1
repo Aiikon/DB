@@ -2623,31 +2623,38 @@ Function Update-DBIntellisense
     End
     {
         $Script:ColumnDict = @{}
-        $Script:ColumnDict[$Connection] = Get-DBColumn $connectionName
+        $Script:ColumnDict[$Connection] = Get-DBColumn $Connection
+        $Script:IndexDict[$Connection] = Get-DBIndex $Connection
     }
 }
 
 $Script:ColumnDict = @{}
-
-foreach ($command in (Get-Command -Module DB))
-{
-    if (!$command.Parameters.ContainsKey('Connection')) { continue }
-
-    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Connection' -ScriptBlock {
-        Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
-        $wordRegex = [regex]::Escape($WordToComplete)
-        foreach ($value in $Script:ModuleConfig.Connections.Keys | Sort-Object)
-        {
-            if ($value -match $wordRegex)
-            {
-                [System.Management.Automation.CompletionResult]::new($value)
-            }
-        }
-    }
-
-    if (!$command.Parameters.ContainsKey('Schema')) { continue }
-
-    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Schema' -ScriptBlock {
+$Script:IndexDict = @{}
+$Script:IntellisenseSets = @{
+    'Schema' = 'Schema'
+    'Schema|Table' = 'Schema|Table'
+    'Schema|Table|Column' = 'Schema|Table|Column'
+    'Schema|Table|OrderBy' = 'Schema|Table|Column'
+    'Schema|Table|Min' = 'Schema|Table|Column'
+    'Schema|Table|Max' = 'Schema|Table|Column'
+    'Schema|Table|Avg' = 'Schema|Table|Column'
+    'Schema|Table|Sum' = 'Schema|Table|Column'
+    'Schema|Table|FilterNull' = 'Schema|Table|Column'
+    'Schema|Table|FilterNullOrEmpty' = 'Schema|Table|Column'
+    'Schema|Table|FilterNotNull' = 'Schema|Table|Column'
+    'ForeignSchema' = 'Schema'
+    'ForeignSchema|ForeignTable' = 'Schema|Table'
+    'ForeignSchema|ForeignTable|ForeignColumn' = 'Schema|Table|Column'
+    'RightSchema' = 'Schema'
+    'RightSchema|RightTable' = 'Schema|Table'
+    'RightSchema|RightTable|RightKey' = 'Schema|Table|Column'
+    'LeftSchema' = 'Schema'
+    'LeftSchema|LeftTable' = 'Schema|Table'
+    'LeftSchema|LeftTable|LeftKey' = 'Schema|Table|Column'
+    'Schema|Table|Index' = 'Schema|Table|Index'
+}
+$Script:IntellisenseScripts = @{
+    'Schema' = {
         Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
         $connectionName = $FakeBoundParameter['Connection']
         if (!$connectionName) { return }
@@ -2668,9 +2675,7 @@ foreach ($command in (Get-Command -Module DB))
         }
     }
 
-    if (!$command.Parameters.ContainsKey('Table')) { continue }
-
-    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Table' -ScriptBlock {
+    'Schema|Table' = {
         Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
         $connectionName = $FakeBoundParameter['Connection']
         if (!$connectionName) { return }
@@ -2678,7 +2683,14 @@ foreach ($command in (Get-Command -Module DB))
         {
             $Script:ColumnDict[$connectionName] = Get-DBColumn $connectionName
         }
-        $schemaName = $FakeBoundParameter['Schema']
+
+        $schemaColumnName = 'Schema'
+        if ($ParameterName -match '(Foreign|Left|Right)Table')
+        {
+            $schemaColumnName = "$($Matches[1])Schema"
+        }
+
+        $schemaName = $FakeBoundParameter[$schemaColumnName]
         if (!$schemaName) { $schemaName = $Script:ModuleConfig.Connections[$connectionName].DefaultSchema }
 
         $tableList = $Script:ColumnDict[$connectionName] |
@@ -2696,9 +2708,7 @@ foreach ($command in (Get-Command -Module DB))
         }
     }
 
-    if (!$command.Parameters.ContainsKey('Column')) { continue }
-
-    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Column' -ScriptBlock {
+    'Schema|Table|Column' = {
         Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
         $connectionName = $FakeBoundParameter['Connection']
         if (!$connectionName) { return }
@@ -2706,10 +2716,19 @@ foreach ($command in (Get-Command -Module DB))
         {
             $Script:ColumnDict[$connectionName] = Get-DBColumn $connectionName
         }
-        $schemaName = $FakeBoundParameter['Schema']
+
+        $schemaColumnName = 'Schema'
+        $tableColumnName = 'Table'
+        if ($ParameterName -match '(Foreign|Left|Right)(Key|Column)')
+        {
+            $schemaColumnName = "$($Matches[1])Schema"
+            $tableColumnName = "$($Matches[1])Table"
+        }
+
+        $schemaName = $FakeBoundParameter[$schemaColumnName]
         if (!$schemaName) { $schemaName = $Script:ModuleConfig.Connections[$connectionName].DefaultSchema }
 
-        $tableName = $FakeBoundParameter['Table']
+        $tableName = $FakeBoundParameter[$tableColumnName]
         if (!$tableName) { return }
 
         $columnList = $Script:ColumnDict[$connectionName] |
@@ -2721,7 +2740,72 @@ foreach ($command in (Get-Command -Module DB))
         $wordRegex = [regex]::Escape($WordToComplete)
         foreach ($value in $columnList)
         {
-            [System.Management.Automation.CompletionResult]::new($value)
+            if ($value -match $wordRegex)
+            {
+                [System.Management.Automation.CompletionResult]::new($value)
+            }
         }
+    }
+
+    'Schema|Table|Index' = {
+        Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
+        $connectionName = $FakeBoundParameter['Connection']
+        if (!$connectionName) { return }
+        if (!$Script:IndexDict.ContainsKey($connectionName))
+        {
+            $Script:IndexDict[$connectionName] = Get-DBIndex $connectionName
+        }
+        $schemaName = $FakeBoundParameter['Schema']
+        if (!$schemaName) { $schemaName = $Script:ModuleConfig.Connections[$connectionName].DefaultSchema }
+
+        $tableName = $FakeBoundParameter['Table']
+        if (!$tableName) { return }
+
+        $indexList = $Script:IndexDict[$connectionName] |
+            Where-Object SchemaName -eq $schemaName |
+            Where-Object TableName -eq $tableName |
+            Select-Object -Unique -ExpandProperty IndexName |
+            Sort-Object
+            
+        $wordRegex = [regex]::Escape($WordToComplete)
+        foreach ($value in $indexList)
+        {
+            if ($value -match $wordRegex)
+            {
+                [System.Management.Automation.CompletionResult]::new($value)
+            }
+        }
+    }
+}
+
+foreach ($command in (Get-Command -Module DB))
+{
+    if (!$command.Parameters.ContainsKey('Connection')) { continue }
+
+    Register-ArgumentCompleter -CommandName $command.Name -ParameterName 'Connection' -ScriptBlock {
+        Param ($CommandName, $ParameterName, $WordToComplete, $CommandAst, $FakeBoundParameter)
+        $wordRegex = [regex]::Escape($WordToComplete)
+        foreach ($value in $Script:ModuleConfig.Connections.Keys | Sort-Object)
+        {
+            if ($value -match $wordRegex)
+            {
+                [System.Management.Automation.CompletionResult]::new($value)
+            }
+        }
+    }
+
+    foreach ($set in $Script:IntellisenseSets.Keys)
+    {
+        $matched = $true
+        foreach ($parameter in $set -split '\|')
+        {
+            if (!$command.Parameters.ContainsKey($parameter))
+            {
+                $matched = $false
+            }
+        }
+        if (!$matched) { continue }
+
+        Register-ArgumentCompleter -CommandName $command.Name -ParameterName $parameter -ScriptBlock $Script:IntellisenseScripts[$Script:IntellisenseSets[$set]]
     }
 }
