@@ -1228,6 +1228,10 @@ Function Add-DBRow
                 if (!$dbConnection.Transaction) { $options += [System.Data.SqlClient.SqlBulkCopyOptions]::UseInternalTransaction }
                 $sqlBulkCopy = New-Object System.Data.SqlClient.SqlBulkCopy $dbConnection.ConnectionObject, $options, $dbConnection.Transaction
                 $sqlBulkCopy.DestinationTableName = "[$Schema].[$Table]"
+                foreach ($col in $dataTable.Columns)
+                {
+                    $sqlBulkCopy.ColumnMappings.Add([System.Data.SqlClient.SqlBulkCopyColumnMapping]::new($col.ColumnName, $col.ColumnName))
+                }
                 if ($Timeout -ne $null) { $sqlBulkCopy.BulkCopyTimeout = $Timeout }
                 $sqlBulkCopy.WriteToServer($dataTable)
                 $sqlBulkCopy.Close()

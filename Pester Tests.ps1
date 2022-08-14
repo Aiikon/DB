@@ -1758,7 +1758,7 @@ Describe 'DB Module' {
                 Add-DBRow DBTest -Table BulkCopyNullInt -BulkCopy
         }
 
-        It "Remove-DBColumn with Add-DBRow -BulkCopy being offset" {
+        It "Add-DBRow -BulkCopy when skipping a column" {
             New-DBTable DBTest -Table BulkCopyGap -Definition {
                 Define-DBColumn Pkey nvarchar -Length 15 -Required -PrimaryKey
                 Define-DBColumn A int
