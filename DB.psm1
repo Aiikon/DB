@@ -2648,6 +2648,7 @@ $Script:IntellisenseSets = @{
     'RightSchema' = 'Schema'
     'RightSchema|RightTable' = 'Schema|Table'
     'RightSchema|RightTable|RightKey' = 'Schema|Table|Column'
+    'RightSchema|RightTable|Column' = 'Schema|Table|Column'
     'LeftSchema' = 'Schema'
     'LeftSchema|LeftTable' = 'Schema|Table'
     'LeftSchema|LeftTable|LeftKey' = 'Schema|Table|Column'
@@ -2719,7 +2720,12 @@ $Script:IntellisenseScripts = @{
 
         $schemaColumnName = 'Schema'
         $tableColumnName = 'Table'
-        if ($ParameterName -match '(Foreign|Left|Right)(Key|Column)')
+        if ($CommandName -eq 'Define-DBJoin' -and $ParameterName -eq 'Column')
+        {
+            $schemaColumnName = 'RightSchema'
+            $tableColumnName = 'RightTable'
+        }
+        elseif ($ParameterName -match '(Foreign|Left|Right)(Key|Column)')
         {
             $schemaColumnName = "$($Matches[1])Schema"
             $tableColumnName = "$($Matches[1])Table"
