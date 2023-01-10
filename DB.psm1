@@ -396,7 +396,7 @@ Function Get-DBTable
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        
+
         $filterSqlList = @()
         $parameters = @{}
         if ($Table)
@@ -608,7 +608,7 @@ Function Get-DBViewSql
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        
+
         $filterSqlList = @()
         $parameters = @{}
         if ($View)
@@ -2246,7 +2246,7 @@ Function Get-DBForeignKeyConstraint
         trap { $PSCmdlet.ThrowTerminatingError($_) }
 
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        
+
         $filterSqlList = @()
         $parameters = @{}
         if ($Table)
@@ -2302,7 +2302,7 @@ Function Get-DBForeignKeyConstraint
             WHERE t.is_ms_shipped = 0 $filterSql
             ORDER BY s.name, t.name, fk.constraint_column_id
         "
-    }    
+    }
 }
 
 Function New-DBForeignKeyConstraint
@@ -2334,7 +2334,7 @@ Function New-DBForeignKeyConstraint
         [void]$query.Append(" REFERENCES [$ForeignSchema].[$ForeignTable] ([$ForeignColumn])")
         if ($OnUpdate) { [void]$query.Append(" ON UPDATE $($OnUpdate.ToUpper() -replace 'NOACTION', 'NO ACTION')") }
         if ($OnDelete) { [void]$query.Append(" ON UPDATE $($OnDelete.ToUpper() -replace 'NOACTION', 'NO ACTION')") }
-        
+
         if ($PSCmdlet.ShouldProcess("$Schema.$Table.$Constraint", 'Create Foreign Key Constraint'))
         {
             if ($DebugOnly) { return [pscustomobject]@{Query=$query.ToString(); Parameters=@{}} }
@@ -2376,7 +2376,7 @@ Function New-DBStoredProcedure
         [void]$query.Append("`r`nAS`r`nBEGIN`r`n")
         [void]$query.Append($SQL)
         [void]$query.Append("`r`nEND")
-        
+
         if ($PSCmdlet.ShouldProcess("$Schema.$StoredProcedure", 'Create Stored Procedure'))
         {
             if ($Force)
@@ -2403,7 +2403,7 @@ Function Get-DBStoredProcedure
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
         $dbConnection, $Schema = Connect-DBConnection $Connection $Schema
-        
+
         $filterSqlList = @()
         $parameters = @{}
         if ($StoredProcedure)
@@ -2736,7 +2736,7 @@ $Script:IntellisenseScripts = @{
             Where-Object Table -eq $tableName |
             Select-Object -Unique -ExpandProperty Column |
             Sort-Object
-            
+
         $wordRegex = [regex]::Escape($WordToComplete)
         foreach ($value in $columnList)
         {
@@ -2766,7 +2766,7 @@ $Script:IntellisenseScripts = @{
             Where-Object TableName -eq $tableName |
             Select-Object -Unique -ExpandProperty IndexName |
             Sort-Object
-            
+
         $wordRegex = [regex]::Escape($WordToComplete)
         foreach ($value in $indexList)
         {
