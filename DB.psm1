@@ -1369,6 +1369,49 @@ Function Set-DBRow
 
 Function Sync-DBRow
 {
+    <#
+    .SYNOPSIS
+    Syncs the contents of a table with input data by inserting/updating only the changed values. InputObject
+    properties and the table column names must match.
+
+    .DESCRIPTION
+    All modes of this function will retrieve all or a portion of the table from the SQL server and fill a
+    DataTable object in memory. The DataTable object will be compared with all InputObjects and updated
+    to match, with an option to remove rows not found. SetKeys/SetValues/SetObjects can be used to control
+    which records are synced and provide a list of keys that may exist in the table but not the input data
+    that can be removed.
+
+    .PARAMETER InputObject
+    The objects to sync the table with.
+
+    .PARAMETER Mode
+    How to handle the sync.
+    - AllRows will retrieve all rows from the target table and make the entire table match the InbputObjects.
+    - SetOnly will retrieve only those rows with matching keys from Keys/SetKeys/SetValues/SetObjects parameters
+      and sync that portion of the table only.
+    - InsertUpdateOnly will only insert and update rows; it will not try to delete any rows.
+
+    .PARAMETER Keys
+    Optionally specify the primary keys to sync data with. Defaults to the table's primary key. May be useful
+    if there is an alternate key in the table. For example, ServerId may be the primary key but ServerName may
+    also be unique and used to sync records.
+
+    .PARAMETER SetKeys
+    Used when updating only a portion of the table. The list of columns containing key values to consider
+    when syncing. Must be paired with SetValues or SetObjects.
+
+    .PARAMETER SetValues
+    The list of values used with SetKeys. For example if SetKeys is ServerName then SetValues can be an array
+    of server names. Can only be used if SetKeys has a single value. In this example, if syncing a table of
+    scheduled tasks (primary key: ServerName, TaskName), SetKeys would be ServerName and SetValues would be a
+    list of server names. If the table has information on 1000 servers, and we're updating information on 100
+    servers, SetValues would contain those 100 server names. If InputObjects only contain tasks for 90 of the
+    servers, the table rows for the 10 servers that no longer have scheduled tasks would be removed.
+
+    .PARAMETER SetObjects
+    Alternative to SetValues when there's more than one SetKey value.
+
+    #>
     [CmdletBinding(SupportsShouldProcess=$true)]
     Param
     (
