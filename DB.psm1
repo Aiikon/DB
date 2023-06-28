@@ -1666,7 +1666,7 @@ Function Get-DBColumnSql
     End
     {
         $columnSql = "[$Column] $Type"
-        if ($Type -match "char" -and -not $Length)
+        if ($Type -match "char|binary" -and -not $Length)
         {
             $columnSql += "(MAX)"
         }
@@ -1765,11 +1765,13 @@ Function New-DBColumn
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Column,
-        [Parameter(Mandatory=$true)] [ValidateSet('nvarchar', 'nchar', 'varchar', 'char',
-            'bigint', 'int', 'smallint', 'tinyint', 'bit',
-            'numeric', 'decimal', 'float', 'money', 'smallmoney',
-            'datetime', 'datetime2', 'date', 'time',
-            'ntext', 'varbinary', 'uniqueidentifier', 'xml')] [string] $Type,
+        [Parameter(Mandatory=$true)] [ValidateSet(
+            'char', 'varchar', 'nchar', 'nvarchar',
+            'bit', 'tinyint', 'smallint', 'int', 'bigint',
+            'smallmoney', 'money', 'numeric', 'decimal',
+            'float', 'real',
+            'date', 'smalldatetime', 'datetime', 'datetime2', 'datetimeoffset', 'time',
+            'text', 'ntext', 'binary', 'varbinary', 'uniqueidentifier', 'xml')] [string] $Type,
         [Parameter()] [int] $Length,
         [Parameter()] [switch] $Required,
         [Parameter()] [string] $Default,
@@ -1833,11 +1835,13 @@ Function Update-DBColumn
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Table,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Schema,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Column,
-        [Parameter(Mandatory=$true)] [ValidateSet('nvarchar', 'nchar', 'varchar', 'char',
-            'bigint', 'int', 'smallint', 'tinyint', 'bit',
-            'numeric', 'decimal', 'float', 'money', 'smallmoney',
-            'datetime', 'datetime2', 'date', 'time',
-            'ntext', 'varbinary', 'uniqueidentifier', 'xml')] [string] $Type,
+        [Parameter(Mandatory=$true)] [ValidateSet(
+            'char', 'varchar', 'nchar', 'nvarchar',
+            'bit', 'tinyint', 'smallint', 'int', 'bigint',
+            'smallmoney', 'money', 'numeric', 'decimal',
+            'float', 'real',
+            'date', 'smalldatetime', 'datetime', 'datetime2', 'datetimeoffset', 'time',
+            'text', 'ntext', 'binary', 'varbinary', 'uniqueidentifier', 'xml')] [string] $Type,
         [Parameter()] [int] $Length,
         [Parameter()] [switch] $Required,
         [Parameter()] [string] $Default,
@@ -1872,11 +1876,13 @@ Function Define-DBColumn
     Param
     (
         [Parameter(Mandatory=$true, Position=0)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Name,
-        [Parameter(Mandatory=$true, Position=1)] [ValidateSet('nvarchar', 'nchar', 'varchar', 'char',
-            'bigint', 'int', 'smallint', 'tinyint', 'bit',
-            'numeric', 'decimal', 'float', 'money', 'smallmoney',
-            'datetime', 'datetime2', 'date', 'time',
-            'ntext', 'varbinary', 'uniqueidentifier', 'xml')] [string] $Type,
+        [Parameter(Mandatory=$true, Position=1)] [ValidateSet(
+            'char', 'varchar', 'nchar', 'nvarchar',
+            'bit', 'tinyint', 'smallint', 'int', 'bigint',
+            'smallmoney', 'money', 'numeric', 'decimal',
+            'float', 'real',
+            'date', 'smalldatetime', 'datetime', 'datetime2', 'datetimeoffset', 'time',
+            'text', 'ntext', 'binary', 'varbinary', 'uniqueidentifier', 'xml')] [string] $Type,
         [Parameter(Position=2)] [int] $Length,
         [Parameter()] [switch] $Required,
         [Parameter()] [switch] $PrimaryKey,

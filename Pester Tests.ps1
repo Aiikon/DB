@@ -716,6 +716,135 @@ Describe 'DB Module' {
         }
     }
 
+    Context 'Type Tests' {
+        It 'bit' {
+            New-DBTable DBTest -Table TypeTestBit -Definition {
+                Define-DBColumn Id -Type int -Required -PrimaryKey
+                Define-DBColumn Value -Type bit
+            }
+
+            [pscustomobject]@{Id=0; Value=0} | Add-DBRow DBTest -Table TypeTestBit
+            [pscustomobject]@{Id=1; Value=1} | Add-DBRow DBTest -Table TypeTestBit
+            [pscustomobject]@{Id=2; Value=$false} | Add-DBRow DBTest -Table TypeTestBit
+            [pscustomobject]@{Id=3; Value=$true} | Add-DBRow DBTest -Table TypeTestBit
+
+            $values = Get-DBRow DBTest -Table TypeTestBit | Sort-Object Id
+            $values[0].Value | Should Be $false
+            $values[1].Value | Should Be $true
+            $values[2].Value | Should Be $false
+            $values[3].Value | Should Be $true
+        }
+
+        It 'date' {
+            New-DBTable DBTest -Table TypeTestDate -Definition {
+                Define-DBColumn Id -Type int -Required -PrimaryKey
+                Define-DBColumn Value -Type date
+            }
+
+            [pscustomobject]@{Id=0; Value=[DateTime]"2020-12-14"} | Add-DBRow DBTest -Table TypeTestDate
+            [pscustomobject]@{Id=1; Value="2020-12-14"} | Add-DBRow DBTest -Table TypeTestDate
+            [pscustomobject]@{Id=2; Value=[DateTime]"2020-12-14 13:20:30"} | Add-DBRow DBTest -Table TypeTestDate
+
+            $values = Get-DBRow DBTest -Table TypeTestDate | Sort-Object Id
+            $values[0].Value | Should Be ([DateTime]"2020-12-14")
+            $values[1].Value | Should Be ([DateTime]"2020-12-14")
+            $values[2].Value | Should Be ([DateTime]"2020-12-14")
+        }
+
+        It 'datetime' {
+            New-DBTable DBTest -Table TypeTestDatetime -Definition {
+                Define-DBColumn Id -Type int -Required -PrimaryKey
+                Define-DBColumn Value -Type datetime
+            }
+
+            [pscustomobject]@{Id=0; Value=[DateTime]"2020-12-14"} | Add-DBRow DBTest -Table TypeTestDatetime
+            [pscustomobject]@{Id=1; Value="2020-12-14"} | Add-DBRow DBTest -Table TypeTestDatetime
+            [pscustomobject]@{Id=2; Value=[DateTime]"2020-12-14 13:20:30"} | Add-DBRow DBTest -Table TypeTestDatetime
+            [pscustomobject]@{Id=3; Value=[DateTime]"2020-12-14 13:20:30.1111111"} | Add-DBRow DBTest -Table TypeTestDatetime
+
+            $values = Get-DBRow DBTest -Table TypeTestDatetime | Sort-Object Id
+            $values[0].Value | Should Be ([DateTime]"2020-12-14 00:00:00")
+            $values[1].Value | Should Be ([DateTime]"2020-12-14 00:00:00")
+            $values[2].Value | Should Be ([DateTime]"2020-12-14 13:20:30")
+            $values[3].Value | Should Be ([DateTime]"2020-12-14 13:20:30.1100000")
+        }
+
+        It 'datetime2' {
+            New-DBTable DBTest -Table TypeTestDatetime2 -Definition {
+                Define-DBColumn Id -Type int -Required -PrimaryKey
+                Define-DBColumn Value -Type datetime2
+            }
+
+            [pscustomobject]@{Id=0; Value=[DateTime]"2020-12-14"} | Add-DBRow DBTest -Table TypeTestDatetime2
+            [pscustomobject]@{Id=1; Value="2020-12-14"} | Add-DBRow DBTest -Table TypeTestDatetime2
+            [pscustomobject]@{Id=2; Value=[DateTime]"2020-12-14 13:20:30"} | Add-DBRow DBTest -Table TypeTestDatetime2
+            [pscustomobject]@{Id=3; Value=[DateTime]"2020-12-14 13:20:30.1111111"} | Add-DBRow DBTest -Table TypeTestDatetime2
+
+            $values = Get-DBRow DBTest -Table TypeTestDatetime2 | Sort-Object Id
+            $values[0].Value | Should Be ([DateTime]"2020-12-14 00:00:00")
+            $values[1].Value | Should Be ([DateTime]"2020-12-14 00:00:00")
+            $values[2].Value | Should Be ([DateTime]"2020-12-14 13:20:30")
+            $values[3].Value | Should Be ([DateTime]"2020-12-14 13:20:30.1111111")
+        }
+
+        It 'smalldatetime' {
+            New-DBTable DBTest -Table TypeTestSmalldatetime -Definition {
+                Define-DBColumn Id -Type int -Required -PrimaryKey
+                Define-DBColumn Value -Type smalldatetime
+            }
+
+            [pscustomobject]@{Id=0; Value=[DateTime]"2020-12-14"} | Add-DBRow DBTest -Table TypeTestSmalldatetime
+            [pscustomobject]@{Id=1; Value="2020-12-14"} | Add-DBRow DBTest -Table TypeTestSmalldatetime
+            [pscustomobject]@{Id=2; Value=[DateTime]"2020-12-14 13:20:30"} | Add-DBRow DBTest -Table TypeTestSmalldatetime
+            [pscustomobject]@{Id=3; Value=[DateTime]"2020-12-14 13:20:30.1111111"} | Add-DBRow DBTest -Table TypeTestSmalldatetime
+
+            $values = Get-DBRow DBTest -Table TypeTestSmalldatetime | Sort-Object Id
+            $values[0].Value | Should Be ([DateTime]"2020-12-14 00:00:00")
+            $values[1].Value | Should Be ([DateTime]"2020-12-14 00:00:00")
+            $values[2].Value | Should Be ([DateTime]"2020-12-14 13:21:00")
+            $values[3].Value | Should Be ([DateTime]"2020-12-14 13:21:00.0000000")
+        }
+
+        It 'time' {
+            New-DBTable DBTest -Table TypeTestTime -Definition {
+                Define-DBColumn Id -Type int -Required -PrimaryKey
+                Define-DBColumn Value -Type time
+            }
+
+            [pscustomobject]@{Id=0; Value="01:02:03"} | Add-DBRow DBTest -Table TypeTestTime
+            [pscustomobject]@{Id=1; Value=[TimeSpan]"01:02:03"} | Add-DBRow DBTest -Table TypeTestTime
+            [pscustomobject]@{Id=2; Value=[TimeSpan]"01:02:03.1111111"} | Add-DBRow DBTest -Table TypeTestTime
+
+            $values = Get-DBRow DBTest -Table TypeTestTime | Sort-Object Id
+            $values[0].Value | Should Be ([TimeSpan]"01:02:03")
+            $values[1].Value | Should Be ([TimeSpan]"01:02:03")
+            $values[2].Value | Should Be ([TimeSpan]"01:02:03.1111111")
+        }
+
+        It 'binary' {
+            New-DBTable DBTest -Table TypeTestBinary -Definition {
+                Define-DBColumn Id -Type int -Required -PrimaryKey
+                Define-DBColumn Value -Type binary -Length 4
+            }
+
+            [pscustomobject]@{Id=0; Value=[byte[]](1,2,3,4)} | Add-DBRow DBTest -Table TypeTestBinary
+
+            $values = Get-DBRow DBTest -Table TypeTestBinary | Sort-Object Id
+            $values[0].Value -join '+' | Should Be "1+2+3+4"
+        }
+
+        It 'varbinary' {
+            New-DBTable DBTest -Table TypeTestVarbinary -Definition {
+                Define-DBColumn Id -Type int -Required -PrimaryKey
+                Define-DBColumn Value -Type varbinary
+            }
+
+            [pscustomobject]@{Id=0; Value=[byte[]](1,2,3,4)} | Add-DBRow DBTest -Table TypeTestVarbinary
+
+            $values = Get-DBRow DBTest -Table TypeTestVarbinary | Sort-Object Id
+            $values[0].Value -join '+' | Should Be "1+2+3+4"
+        }
+    }
 
     Context 'Sync-DBRow' {
 
