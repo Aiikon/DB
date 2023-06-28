@@ -1803,10 +1803,6 @@ Describe 'DB Module' {
         }
     }
 
-    Context 'Drop Constraints to Rename' {
-        It 'Invoke-DBChangeValueWithoutConstraints'
-    }
-
     Context 'Edge Cases' {
         
         It 'Uses the right table abbreviations when self-joining' {
