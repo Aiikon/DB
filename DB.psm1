@@ -307,11 +307,12 @@ Function New-DBDatabase
     (
         [Parameter(Mandatory=$true, Position=0)] [object] $Connection,
         [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Database,
-        [Parameter(Mandatory=$true)] [ValidatePattern("\A[A-Za-z0-9 _\-\\\.\:]+\Z")] [string] $FileName
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\\\.\:]+\Z")] [string] $FileName
     )
     End
     {
-        $query = "CREATE DATABASE [$Database] ON (NAME='$Database', FILENAME='$FileName')"
+        $onSql = if ($FileName) { " ON (NAME='$Database', FILENAME='$FileName')" } else { "" }
+        $query = "CREATE DATABASE [$Database]$onSql"
 
         Invoke-DBQuery $Connection $query -Mode Scalar
     }
