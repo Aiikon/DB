@@ -291,13 +291,16 @@ Function Get-DBDatabase
 {
     Param
     (
-        [Parameter(Mandatory=$true, Position=0)] [string] $Connection
+        [Parameter(Mandatory=$true, Position=0)] [string] $Connection,
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-]+\Z")] [string] $Database
     )
     End
     {
         trap { $PSCmdlet.ThrowTerminatingError($_) }
-        $dbConnection = Connect-DBConnection $Connection
-        $dbConnection.ConnectionObject.GetSchema('Databases')
+        $query = "SELECT [name] [Database], database_id DatabaseId, collation_name CollationName FROM sys.databases"
+        $parameters = @{}
+        if ($Database) { $query += " WHERE [name]=@Database"; $parameters.Database = $Database }
+        Invoke-DBQuery $Connection $query -Parameters $parameters
     }
 }
 

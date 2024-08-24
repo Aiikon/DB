@@ -17,6 +17,7 @@ Describe 'DB Module' {
 
     try { Remove-DBSchema DBTest -Schema Tests -Confirm:$false -ErrorAction Stop } catch { }
     try { Remove-DBSchema DBTest -Schema TableHerring -Confirm:$false -ErrorAction Stop } catch { }
+    try { Remove-DBDatabase DBTest -Database DBTest2 -Confirm:$false -ErrorAction Stop } catch { }
 
     Context 'Connection' {
         It 'ConnectionTimeout' {
@@ -74,6 +75,28 @@ Describe 'DB Module' {
             catch { $_.Exception.Message }
 
             $message | Should Match 'Execution Timeout Expired'
+        }
+    }
+
+    Context 'Databases' {
+        It 'Get-DBDatabase' {
+            $database = Get-DBDatabase DBTest | Where-Object Database -eq DBTest
+            $database.Database | Should Be DBTest
+        }
+
+        It 'Get-DBDatabase -Database' {
+            $database = Get-DBDatabase DBTest -Database DBTest
+            $database.Database | Should Be DBTest
+        }
+
+        It 'New-DBDatabase' {
+            $databaseBefore = Get-DBDatabase DBTest -Database DBTest2
+            $databaseBefore.Database | Should Be $null
+
+            New-DBDatabase DBTest -Database DBTest2
+
+            $databaseAfter = Get-DBDatabase DBTest -Database DBTest2
+            $databaseAfter.Database | Should Be DBTest2
         }
     }
 
