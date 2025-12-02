@@ -925,6 +925,24 @@ Function Define-DBJoin
     }
 }
 
+Function Define-DBOrderBy
+{
+    [CmdletBinding(PositionalBinding=$false)]
+    Param
+    (
+        [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Column,
+        [Parameter()] [switch] $Desc
+    )
+    End
+    {
+        $definition = [ordered]@{}
+        $definition.DefinitionType = 'OrderBy'
+        $definition.Column = $Column
+        $definition.Desc = $Desc.IsPresent
+        [pscustomobject]$definition
+    }
+}
+
 Function Get-DBRow
 {
     [CmdletBinding(PositionalBinding=$false)]
@@ -942,7 +960,7 @@ Function Get-DBRow
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Min,
         [Parameter()] [ValidatePattern("\A[A-Za-z0-9 _\-\*]+\Z")] [string[]] $Max,
         [Parameter()] [hashtable] $Rename,
-        [Parameter()] [scriptblock] $Joins,
+        [Parameter()] [object[]] [Alias('Joins')] $Options,
         [Parameter()] [Nullable[int]] $Timeout,
         [Parameter()] [switch] $DebugOnly,
         [Parameter()] [hashtable] $FilterEq,
@@ -977,7 +995,28 @@ Function Get-DBRow
         $columnSql = '*'
         $joinSql = ''
 
-        if ($Column -or $Joins)
+        $optionList = @(
+            foreach ($option in $Options)
+            {
+                if (!$option) { continue }
+                if ($option -is [scriptblock]) { & $option }
+                else { $option }
+            }
+        )
+
+        $joinDefList = $optionList | Where-Object DefinitionType -eq 'Join'
+        $orderByDefList = $optionList | Where-Object DefinitionType -eq 'OrderBy'
+
+        if ($OrderBy)
+        {
+            if ($orderByDefList) { throw "The parameters OrderBy and Options with Define-DBOrderBy cannot be used together." }
+            $orderByDefList = foreach ($c in $OrderBy)
+            {
+                Define-DBOrderBy -Column $c
+            }
+        }
+
+        if ($Column -or $joinDefList)
         {
             foreach ($c in $Column)
             {
@@ -992,12 +1031,11 @@ Function Get-DBRow
             if (!$Column) { $groupColumnDict.Add("T1.*", $null) }
         }
 
-        if ($Joins)
+        if ($joinDefList)
         {
             $joinTableDict = @{"[$Schema].[$Table]"='T1'}
             $t = 2
             $joinSqlList = @()
-            $joinDefList = & $Joins
             foreach ($joinDef in $joinDefList)
             {
                 $leftSchema = $joinDef.LeftSchema
@@ -1128,9 +1166,14 @@ Function Get-DBRow
         }
 
         $orderSql = ''
-        if ($OrderBy)
+        if ($orderByDefList)
         {
-            $orderSql = " ORDER BY $($(foreach ($c in $OrderBy) { "T1.[$c]" }) -join ',')"
+            $orderSql = foreach ($o in $orderByDefList)
+            {
+                $desc = if ($o.Desc) { " DESC" } else { "" }
+                "T1.[$($o.Column)]$desc"
+            }
+            $orderSql = " ORDER BY $($orderSql -join ',')"
         }
 
         if (@($groupColumnDict.GetEnumerator()).Count)
@@ -2351,7 +2394,7 @@ Function Get-DBForeignKeyConstraint
                 INNER JOIN sys.columns c ON fk.parent_object_id = c.object_id and fk.parent_column_id = c.column_id
                 INNER JOIN sys.tables ft ON fk.referenced_object_id = ft.object_id
                 INNER JOIN sys.schemas fs ON ft.schema_id = fs.schema_id
-                INNER JOIN sys.columns fc ON fk.parent_object_id = fc.object_id and fk.parent_column_id = fc.column_id
+                INNER JOIN sys.columns fc ON fk.referenced_object_id = fc.object_id and fk.referenced_column_id = fc.column_id
             WHERE t.is_ms_shipped = 0 $filterSql
             ORDER BY s.name, t.name, fk.constraint_column_id
         "

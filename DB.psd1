@@ -107,6 +107,7 @@ FunctionsToExport = @(
     'Get-DBViewSql'
     'New-DBView'
     'Remove-DBView'
+    'Define-DBOrderBy'
     'Define-DBJoin'
     'Get-DBRow'
     'Add-DBRow'

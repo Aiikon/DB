@@ -417,6 +417,24 @@ Describe 'DB Module' {
             $data[-1].ClusterName | Should Be TXFile
         }
 
+        It 'Get-DBRow -Options OrderBy' {
+            $data = Get-DBRow DBTest -Table Cluster -Options {
+                Define-DBOrderBy -Column ClusterName
+            }
+
+            $data[0].ClusterName | Should Be CAFile
+            $data[-1].ClusterName | Should Be TXFile
+        }
+
+        It 'Get-DBRow -Options OrderBy -Desc' {
+            $data = Get-DBRow DBTest -Table Cluster -Options @(
+                Define-DBOrderBy -Column ClusterName -Desc
+            )
+
+            $data[0].ClusterName | Should Be TXFile
+            $data[-1].ClusterName | Should Be CAFile
+        }
+
         It 'Get-DBRow -Join' {
             $data = Get-DBRow DBTest -Table Cluster -Column ClusterName -OrderBy ClusterId -Joins {
                 Define-DBJoin -RightTable Cluster -RightKey ClusterId -Column ClusterType
